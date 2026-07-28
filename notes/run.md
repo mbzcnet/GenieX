@@ -83,6 +83,30 @@ geniex infer Qwen/Qwen3-1.7B-GGUF --device gpu
 geniex infer Qwen/Qwen3-1.7B-GGUF --device cpu
 ```
 
+### Resource limits (optional)
+
+Optional CLI caps. **Default is 0 = leave the SDK alone** so offload paths keep
+the device-aware thread matrix (~6 threads) and pure CPU uses
+`hardware_concurrency`. Percents are resolved in the CLI
+(`cli/internal/resource`) into concrete `n_threads` / scaled `n_gpu_layers`
+before the C ABI — not inside the Go binding or native SDK.
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--cpu-percent N` | 0 | `1–100` → `n_threads = max(1, NumCPU * N / 100)`. `0` → SDK auto. |
+| `--gpu-percent N` | 0 | Scales **positive** `--ngl` only (`--ngl 20 --gpu-percent 90` → 18). Ignored for `--ngl -1` (all) and `--ngl 0` (CPU). |
+
+```powershell
+# Cap pure-CPU load without touching NPU/GPU offload defaults
+geniex infer Qwen/Qwen3-1.7B-GGUF --compute cpu --cpu-percent 50
+
+# Scale an explicit layer count (not the default -1)
+geniex infer Qwen/Qwen3-1.7B-GGUF --compute gpu --ngl 20 --gpu-percent 80
+```
+
+Server: `geniex serve --cpu-percent 50` (env `GENIEX_CPUPERCENT` /
+`GENIEX_GPUPERCENT`). Per-request JSON `cpu_percent` / `gpu_percent` override.
+
 ### Sanity-checking which path actually ran
 
 The SDK's default log handler is a no-op in release builds (`sdk/src/ml.cpp:36-60`), so `stdout`/`stderr` stays silent and "did it actually use HTP?" is easy to guess wrong. Ways to check:

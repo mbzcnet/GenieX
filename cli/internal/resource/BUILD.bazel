@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("//scripts:cgo_test.bzl", "go_cgo_test")
+
+go_library(
+    name = "resource",
+    srcs = ["resource.go"],
+    importpath = "github.com/qualcomm/GenieX/cli/internal/resource",
+    visibility = ["//visibility:public"],
+)
+
+go_cgo_test(
+    name = "resource_test",
+    srcs = ["resource_test.go"],
+    embed = [":resource"],
+)

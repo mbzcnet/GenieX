@@ -53,6 +53,10 @@ type ChatCompletionRequest struct {
 	SlidingWindow      *bool `json:"sliding_window"` // nil = true
 	SlidingWindowNKeep int32 `json:"sliding_window_n_keep"`
 
+	// Resource caps (0 = server default / SDK auto). See cli/internal/resource.
+	CpuPercent int32 `json:"cpu_percent"`
+	GpuPercent int32 `json:"gpu_percent"`
+
 	ImageMaxLength int32 `json:"image_max_length"`
 
 	TopK              int32   `json:"top_k"`
@@ -82,6 +86,8 @@ func defaultChatCompletionRequest() ChatCompletionRequest {
 		// CacheTypeK/V / KvCache left empty here; resolved after JSON bind so
 		// a request-level kv_cache can win over server defaults.
 		MaxHistoryTurns:   32,
+		CpuPercent:        cfg.CpuPercent,
+		GpuPercent:        cfg.GpuPercent,
 		ImageMaxLength:    512,
 		TopK:              0,
 		MinP:              0.0,
@@ -152,7 +158,7 @@ func ChatCompletions(c *gin.Context) {
 	// Fill unset request knobs from the server-wide defaults and resolve the
 	// compute unit. Done before the MaxCompletionTokens floor so a body that
 	// omits nctx picks up the server default, not the floor.
-	modelParam, err := service.ResolveModelParam(paths.RuntimeID, paths.ModelName, param.NCtx, param.Ngl, param.Compute, cacheK, cacheV)
+	modelParam, err := service.ResolveModelParam(paths.RuntimeID, paths.ModelName, param.NCtx, param.Ngl, param.Compute, cacheK, cacheV, param.CpuPercent, param.GpuPercent)
 	if err != nil {
 		slog.Error("Failed to resolve model params", "model", param.Model, "error", err)
 		c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})

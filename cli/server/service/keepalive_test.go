@@ -16,7 +16,7 @@ import (
 // TestResolveModelParam_PassesLlamaCppValuesThrough verifies that nctx / ngl are
 // forwarded verbatim for llama_cpp and the compute alias resolves to a device.
 func TestResolveModelParam_PassesLlamaCppValuesThrough(t *testing.T) {
-	got, err := ResolveModelParam(geniex_sdk.RuntimeLlamaCpp, "some-model", 2048, 10, "gpu", "", "")
+	got, err := ResolveModelParam(geniex_sdk.RuntimeLlamaCpp, "some-model", 2048, 10, "gpu", "", "", 0, 0)
 	if err != nil {
 		t.Fatalf("ResolveModelParam: %v", err)
 	}
@@ -26,20 +26,24 @@ func TestResolveModelParam_PassesLlamaCppValuesThrough(t *testing.T) {
 	if got.NGpuLayers != 10 {
 		t.Errorf("NGpuLayers = %d, want 10", got.NGpuLayers)
 	}
+	if got.NThreads != 0 {
+		t.Errorf("NThreads = %d, want 0 (SDK auto when cpu_percent=0)", got.NThreads)
+	}
 }
 
 // TestResolveModelParam_NpuAliasResolvesDevice verifies the npu alias pins HTP0
 // and passes ngl through (-1 = all layers).
 func TestResolveModelParam_NpuAliasResolvesDevice(t *testing.T) {
-	got, err := ResolveModelParam(geniex_sdk.RuntimeLlamaCpp, "some-model", 4096, -1, "npu", "q8_0", "q8_0")
+	got, err := ResolveModelParam(geniex_sdk.RuntimeLlamaCpp, "some-model", 4096, -1, "npu", "q8_0", "q8_0", 0, 90)
 	if err != nil {
 		t.Fatalf("ResolveModelParam: %v", err)
 	}
 	if got.DeviceID != "HTP0" {
 		t.Errorf("DeviceID = %q, want HTP0", got.DeviceID)
 	}
+	// gpu_percent must not scale ngl=-1 (all layers).
 	if got.NGpuLayers != -1 {
-		t.Errorf("NGpuLayers = %d, want -1 (all layers)", got.NGpuLayers)
+		t.Errorf("NGpuLayers = %d, want -1 (all layers; gpu_percent ignored)", got.NGpuLayers)
 	}
 	if got.CacheTypeK != "q8_0" || got.CacheTypeV != "q8_0" {
 		t.Errorf("CacheType = %q/%q, want q8_0/q8_0", got.CacheTypeK, got.CacheTypeV)
@@ -49,7 +53,7 @@ func TestResolveModelParam_NpuAliasResolvesDevice(t *testing.T) {
 // TestResolveModelParam_CpuAliasZeroesGpuLayers verifies ngl 0 (pure CPU) is a
 // valid value that survives resolution.
 func TestResolveModelParam_CpuAliasZeroesGpuLayers(t *testing.T) {
-	got, err := ResolveModelParam(geniex_sdk.RuntimeLlamaCpp, "some-model", 4096, 0, "cpu", "", "")
+	got, err := ResolveModelParam(geniex_sdk.RuntimeLlamaCpp, "some-model", 4096, 0, "cpu", "", "", 0, 0)
 	if err != nil {
 		t.Fatalf("ResolveModelParam: %v", err)
 	}
@@ -58,11 +62,26 @@ func TestResolveModelParam_CpuAliasZeroesGpuLayers(t *testing.T) {
 	}
 }
 
+// TestResolveModelParam_ResourcePercents verifies CLI percents resolve to
+// concrete NThreads / scaled NGpuLayers without touching ngl=-1.
+func TestResolveModelParam_ResourcePercents(t *testing.T) {
+	got, err := ResolveModelParam(geniex_sdk.RuntimeLlamaCpp, "some-model", 2048, 20, "gpu", "", "", 50, 90)
+	if err != nil {
+		t.Fatalf("ResolveModelParam: %v", err)
+	}
+	if got.NGpuLayers != 18 {
+		t.Errorf("NGpuLayers = %d, want 18 (90%% of 20)", got.NGpuLayers)
+	}
+	if got.NThreads <= 0 {
+		t.Errorf("NThreads = %d, want > 0 when cpu_percent=50", got.NThreads)
+	}
+}
+
 // TestResolveModelParam_NonLlamaCppZeroesNCtx verifies that for non-llama_cpp
 // runtimes NCtx is zeroed so the plugin's param-guard is not tripped, even when
 // the caller passes a non-zero value.
 func TestResolveModelParam_NonLlamaCppZeroesNCtx(t *testing.T) {
-	got, err := ResolveModelParam(geniex_sdk.RuntimeQairt, "some-model", 8192, 42, "", "q8_0", "q4_0")
+	got, err := ResolveModelParam(geniex_sdk.RuntimeQairt, "some-model", 8192, 42, "", "q8_0", "q4_0", 0, 0)
 	if err != nil {
 		t.Fatalf("ResolveModelParam: %v", err)
 	}

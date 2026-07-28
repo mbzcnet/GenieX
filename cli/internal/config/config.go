@@ -28,6 +28,10 @@ type Config struct {
 	KvCache    string // Convenience: default type for both K and V (empty = auto)
 	CacheTypeK string // Default KV cache type for K (empty = fall back to KvCache / auto)
 	CacheTypeV string // Default KV cache type for V (empty = fall back to KvCache / auto)
+	// CpuPercent / GpuPercent: 0 = leave to SDK (no override). 1-100 caps threads
+	// or scales an explicit positive --ngl. See cli/internal/resource.
+	CpuPercent int32
+	GpuPercent int32
 
 	// HTTPS / TLS settings
 	HTTPS    bool   // Whether to serve over HTTPS (default: false)

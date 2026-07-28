@@ -12,18 +12,21 @@ import (
 
 	geniex_sdk "github.com/qualcomm/GenieX/bindings/go"
 	"github.com/qualcomm/GenieX/cli/internal/config"
+	"github.com/qualcomm/GenieX/cli/internal/resource"
 	"github.com/qualcomm/GenieX/cli/internal/types"
 )
 
-// ResolveModelParam turns the (nctx, ngl, compute, cache) knobs into the ModelParam
-// the keep-alive cache keys on. The caller passes already-resolved values (the
-// handler prefills unset request fields with the server-wide --nctx / --ngl /
-// --compute / --kv-cache defaults). NCtx / NGpuLayers / CacheType* are
-// meaningful only for llama_cpp; for other plugins (e.g. qairt) NCtx is zeroed
-// here and the SDK zeroes ngl so the plugin's param-guard is not tripped.
+// ResolveModelParam turns the (nctx, ngl, compute, cache, resource %) knobs into
+// the ModelParam the keep-alive cache keys on. The caller passes already-resolved
+// values (the handler prefills unset request fields with the server-wide defaults).
+// NCtx / NGpuLayers / NThreads / CacheType* are meaningful only for llama_cpp;
+// for other plugins (e.g. qairt) NCtx is zeroed here and the SDK zeroes ngl so
+// the plugin's param-guard is not tripped.
 // Compute is resolved to a concrete DeviceID by the SDK (sdk/src/device.cpp);
 // coercion warnings are logged.
-func ResolveModelParam(runtimeID, modelName string, reqNCtx, reqNgl int32, reqCompute, reqCacheK, reqCacheV string) (types.ModelParam, error) {
+// cpuPercent / gpuPercent are resolved here into concrete NThreads / NGpuLayers
+// (0 percent = SDK auto / no scale) — see cli/internal/resource.
+func ResolveModelParam(runtimeID, modelName string, reqNCtx, reqNgl int32, reqCompute, reqCacheK, reqCacheV string, cpuPercent, gpuPercent int32) (types.ModelParam, error) {
 	// nctx / ngl / compute already carry the resolved value (explicit request
 	// or the server default prefilled by the handler). Non-llama_cpp plugins
 	// (e.g. qairt) reject non-zero nctx, so zero it for them; the SDK does the
@@ -50,7 +53,8 @@ func ResolveModelParam(runtimeID, modelName string, reqNCtx, reqNgl int32, reqCo
 
 	return types.ModelParam{
 		NCtx:       nctx,
-		NGpuLayers: resolved.Ngl,
+		NGpuLayers: resource.ScaleGpuLayers(resolved.Ngl, gpuPercent),
+		NThreads:   resource.ResolveNThreads(cpuPercent),
 		DeviceID:   resolved.DeviceID,
 		CacheTypeK: cacheK,
 		CacheTypeV: cacheV,
@@ -180,6 +184,7 @@ func keepAliveGet[T any](name string, param types.ModelParam, reset bool) (any, 
 			Config: geniex_sdk.ModelConfig{
 				NCtx:       param.NCtx,
 				NGpuLayers: param.NGpuLayers,
+				NThreads:   param.NThreads,
 				CacheTypeK: param.CacheTypeK,
 				CacheTypeV: param.CacheTypeV,
 			},
@@ -194,6 +199,7 @@ func keepAliveGet[T any](name string, param types.ModelParam, reset bool) (any, 
 			Config: geniex_sdk.ModelConfig{
 				NCtx:       param.NCtx,
 				NGpuLayers: param.NGpuLayers,
+				NThreads:   param.NThreads,
 				CacheTypeK: param.CacheTypeK,
 				CacheTypeV: param.CacheTypeV,
 			},

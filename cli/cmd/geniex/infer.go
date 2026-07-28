@@ -23,6 +23,7 @@ import (
 	chathist "github.com/qualcomm/GenieX/cli/internal/history"
 	"github.com/qualcomm/GenieX/cli/internal/record"
 	"github.com/qualcomm/GenieX/cli/internal/render"
+	"github.com/qualcomm/GenieX/cli/internal/resource"
 )
 
 var (
@@ -48,6 +49,11 @@ var (
 	kvCache    string
 	cacheTypeK string
 	cacheTypeV string
+
+	// Resource caps: 0 = SDK auto (device thread matrix / no ngl scale).
+	// See cli/internal/resource.
+	cpuPercent int32
+	gpuPercent int32
 
 	// sampler config
 	temperature       float32
@@ -103,6 +109,9 @@ var (
 		llmFlags.BoolVarP(&slidingWindow, "sliding-window", "", true, "evict oldest context on overflow instead of erroring (qairt only; default true)")
 		llmFlags.Int32Var(&slidingWindowNKeep, "sliding-window-n-keep", 0, "tokens to keep anchored when sliding/context-shifting (0 = plugin default 4)")
 		llmFlags.IntVar(&maxHistoryTurns, "max-history-turns", 32, "keep last N user turns in multi-turn chat (0 = unlimited)")
+		// 0 = leave n_threads / ngl to the SDK (offload keeps its ~6-thread matrix).
+		llmFlags.Int32Var(&cpuPercent, "cpu-percent", 0, "cap CPU threads to N% of cores (0 = SDK auto; 1-100 = explicit n_threads)")
+		llmFlags.Int32Var(&gpuPercent, "gpu-percent", 0, "scale --ngl when --ngl > 0 (0 or 100 = no scale; ignored for --ngl -1/0)")
 		return llmFlags
 	}()
 	vlmFlags = func() *pflag.FlagSet {
@@ -228,12 +237,14 @@ func loadStopSequences() ([]string, error) {
 	return stopSequences, nil
 }
 
-// resolveModelParams resolves --compute / --ngl / --nctx into the
-// (device_id, ngl, nctx) triple the SDK expects. --ngl (-1 = all) and
+// resolveModelParams resolves --compute / --ngl / --nctx / resource % into the
+// (device_id, ngl, nctx, n_threads) values the SDK expects. --ngl (-1 = all) and
 // --nctx are llama_cpp-only; qairt rejects any non-zero value, so both
 // are zeroed for it (the SDK also forces ngl to 0). Compute-unit alias
 // mapping is delegated to geniex_resolve_device (sdk/src/device.cpp).
-func resolveModelParams(runtimeID, modelName string) (deviceID string, resolvedNgl, resolvedNctx int32, err error) {
+// Resource percents resolve in the CLI (cli/internal/resource) to concrete
+// n_threads / scaled ngl — 0 leaves the SDK device matrices untouched.
+func resolveModelParams(runtimeID, modelName string) (deviceID string, resolvedNgl, resolvedNctx, resolvedNThreads int32, err error) {
 	resolvedNgl, resolvedNctx = ngl, nctx
 	if runtimeID != geniex_sdk.RuntimeLlamaCpp {
 		resolvedNctx = 0
@@ -249,7 +260,8 @@ func resolveModelParams(runtimeID, modelName string) (deviceID string, resolvedN
 		return
 	}
 	deviceID = resolved.DeviceID
-	resolvedNgl = resolved.Ngl
+	resolvedNgl = resource.ScaleGpuLayers(resolved.Ngl, gpuPercent)
+	resolvedNThreads = resource.ResolveNThreads(cpuPercent)
 	if resolved.Warning != "" {
 		fmt.Println(render.GetTheme().Warning.Sprintf("Warning: %s", resolved.Warning))
 	}
@@ -301,7 +313,7 @@ func inferLLM(paths *geniex_sdk.ModelPaths) error {
 		return err
 	}
 
-	deviceID, nglResolved, nctxResolved, err := resolveModelParams(paths.RuntimeID, paths.ModelName)
+	deviceID, nglResolved, nctxResolved, nThreads, err := resolveModelParams(paths.RuntimeID, paths.ModelName)
 	if err != nil {
 		return err
 	}
@@ -318,6 +330,7 @@ func inferLLM(paths *geniex_sdk.ModelPaths) error {
 		Config: geniex_sdk.ModelConfig{
 			NCtx:       nctxResolved,
 			NGpuLayers: nglResolved,
+			NThreads:   nThreads,
 			CacheTypeK: cacheK,
 			CacheTypeV: cacheV,
 		},
@@ -462,7 +475,7 @@ func inferVLM(paths *geniex_sdk.ModelPaths) error {
 		return err
 	}
 
-	deviceID, nglResolved, nctxResolved, err := resolveModelParams(paths.RuntimeID, paths.ModelName)
+	deviceID, nglResolved, nctxResolved, nThreads, err := resolveModelParams(paths.RuntimeID, paths.ModelName)
 	if err != nil {
 		return err
 	}
@@ -479,6 +492,7 @@ func inferVLM(paths *geniex_sdk.ModelPaths) error {
 		Config: geniex_sdk.ModelConfig{
 			NCtx:       nctxResolved,
 			NGpuLayers: nglResolved,
+			NThreads:   nThreads,
 			CacheTypeK: cacheK,
 			CacheTypeV: cacheV,
 		},

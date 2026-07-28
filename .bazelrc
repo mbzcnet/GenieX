@@ -5,6 +5,9 @@ build --incompatible_disallow_empty_glob
 build --keep_going
 build --verbose_failures
 build --disk_cache=~/.cache/bazel-disk
+# Optimized by default: CGo wrappers from the geniex SDK binding are ~100x
+# slower under Bazel's fastbuild than -c opt (matters for local CLI runs).
+build -c opt
 test --test_output=errors
 test --build_tests_only
 run --color=yes

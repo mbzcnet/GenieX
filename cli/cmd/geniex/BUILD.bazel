@@ -24,6 +24,7 @@ go_library(
         "//cli/internal/history",
         "//cli/internal/record",
         "//cli/internal/render",
+        "//cli/internal/resource",
         "//cli/internal/store",
         "//cli/server",
         "@com_github_bytedance_sonic//:sonic",

@@ -38,6 +38,9 @@ func serve() *cobra.Command {
 	serveCmd.Flags().String("kv-cache", "", "Default KV cache type for both K and V (llama_cpp only; env: GENIEX_KVCACHE)")
 	serveCmd.Flags().String("cache-type-k", "", "Default KV cache type for K (env: GENIEX_CACHETYPEK)")
 	serveCmd.Flags().String("cache-type-v", "", "Default KV cache type for V (env: GENIEX_CACHETYPEV)")
+	// Resource caps: 0 = SDK auto / no scale (env: GENIEX_CPUPERCENT / GENIEX_GPUPERCENT).
+	serveCmd.Flags().Int32("cpu-percent", 0, "Default CPU thread cap as % of cores, 0 = SDK auto (env: GENIEX_CPUPERCENT)")
+	serveCmd.Flags().Int32("gpu-percent", 0, "Default scale for positive --ngl, 0 = no scale (env: GENIEX_GPUPERCENT)")
 	// HTTPS / TLS flags
 	serveCmd.Flags().Bool("https", false, "Enable HTTPS/TLS (env: GENIEX_HTTPS)")
 	serveCmd.Flags().String("certfile", "cert.pem", "TLS certificate file path (env: GENIEX_CERTFILE)")
@@ -52,6 +55,8 @@ func serve() *cobra.Command {
 	viper.BindPFlag("kvcache", serveCmd.Flags().Lookup("kv-cache"))
 	viper.BindPFlag("cachetypek", serveCmd.Flags().Lookup("cache-type-k"))
 	viper.BindPFlag("cachetypev", serveCmd.Flags().Lookup("cache-type-v"))
+	viper.BindPFlag("cpupercent", serveCmd.Flags().Lookup("cpu-percent"))
+	viper.BindPFlag("gpupercent", serveCmd.Flags().Lookup("gpu-percent"))
 	viper.BindPFlag("enablehttps", serveCmd.Flags().Lookup("https"))
 	viper.BindPFlag("certfile", serveCmd.Flags().Lookup("certfile"))
 	viper.BindPFlag("keyfile", serveCmd.Flags().Lookup("keyfile"))
