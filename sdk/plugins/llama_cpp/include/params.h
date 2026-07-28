@@ -32,12 +32,12 @@ std::optional<std::vector<ggml_backend_dev_t>> resolve_devices(const char* devic
 Device classify_device(const char* device_id, int n_gpu_layers);
 
 // Map a caller's config to llama params, filling each unset (0) field from the
-// plugin defaults. build_context_params resolves n_ctx (default differs between
-// LLM at 4096 and VLM at 16384) plus n_batch / n_ubatch / n_seq_max, and picks
-// thread counts via the per-(platform, device) rule (offloaded inference pins
-// the upstream-fixed count; pure CPU uses cores/2). build_model_params only
-// reads n_gpu_layers. Device selection and tensor-buffer overrides stay at the
-// call site.
+// plugin defaults. build_context_params resolves n_ctx (default 16384 for both
+// LLM and VLM) plus n_batch / n_ubatch / n_seq_max, KV cache types (cache_type_k
+// / cache_type_v; auto q8_0 when n_ctx >= 8192), and picks thread counts via
+// the per-(platform, device) rule (offloaded inference pins the upstream-fixed
+// count; pure CPU uses cores/2). build_model_params only reads n_gpu_layers.
+// Device selection and tensor-buffer overrides stay at the call site.
 llama_model_params   build_model_params(const geniex_ModelConfig& config, Device device);
 llama_context_params build_context_params(const geniex_ModelConfig& config, int32_t n_ctx_default, Device device);
 

@@ -4,8 +4,12 @@ package com.geniex.sdk.bean
  * Model configuration corresponding to the native `geniex_ModelConfig` struct.
  */
 data class ModelConfig(
-    /** Text context size, 0 = use model default */
-    var nCtx: Int = 2048,
+    /**
+     * Text context size for llama_cpp (default 8192). Use 0 for the native
+     * plugin default. For qairt the JNI forces 0 — context length is fixed by
+     * the AI Hub bundle.
+     */
+    var nCtx: Int = 8192,
 
     /** Number of threads used for text generation */
     var nThreads: Int = 8,
@@ -30,6 +34,17 @@ data class ModelConfig(
      * / [ComputeUnitValue.HYBRID] the caller's value passes through.
      */
     var nGpuLayers: Int = -1,
+
+    /**
+     * llama_cpp-only KV cache element type for K ("f16", "q8_0", "q4_0", …).
+     * Empty = auto (q8_0 when [nCtx] >= 8192). Ignored by qairt.
+     */
+    var cacheTypeK: String = "",
+
+    /**
+     * llama_cpp-only KV cache element type for V. Empty = auto. Ignored by qairt.
+     */
+    var cacheTypeV: String = "",
 
     /** Path to the chat template file (optional) */
     val chat_template_path: String = "",

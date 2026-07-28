@@ -119,6 +119,8 @@ func runCompletions(ctx context.Context, name string, modelType geniex_sdk.Model
 		option.WithJSONSet("ngl", ngl),
 		option.WithJSONSet("nctx", nctx),
 		option.WithJSONSet("compute", computeUnit),
+		option.WithJSONSet("cache_type_k", cacheTypeKOrKv()),
+		option.WithJSONSet("cache_type_v", cacheTypeVOrKv()),
 	)
 	spin.Stop()
 
@@ -198,6 +200,8 @@ func runCompletions(ctx context.Context, name string, modelType geniex_sdk.Model
 				option.WithJSONSet("ngl", ngl),
 				option.WithJSONSet("nctx", nctx),
 				option.WithJSONSet("compute", computeUnit),
+				option.WithJSONSet("cache_type_k", cacheTypeKOrKv()),
+				option.WithJSONSet("cache_type_v", cacheTypeVOrKv()),
 				option.WithHeaderAdd("GenieX-KeepCache", "true"))
 
 			var firstToken time.Time

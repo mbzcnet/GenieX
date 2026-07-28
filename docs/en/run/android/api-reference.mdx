@@ -159,13 +159,15 @@ data class VlmCreateInput(
 
 ```kotlin
 data class ModelConfig(
-    var nCtx:                  Int     = 2048,     // context size; 0 = model default
+    var nCtx:                  Int     = 8192,     // context size; 0 = model default
     var nThreads:              Int     = 8,
     var nThreadsBatch:         Int     = 8,
     var nBatch:                Int     = 2048,
     var nUBatch:               Int     = 512,
     var nSeqMax:               Int     = 1,
     var nGpuLayers:            Int     = -1,    // -1 = all layers
+    var cacheTypeK:            String  = "",    // llama_cpp KV type; empty = auto (q8_0 when nCtx>=8192)
+    var cacheTypeV:            String  = "",    // llama_cpp KV type; empty = auto
     val chat_template_path:    String  = "",
     val chat_template_content: String  = "",
     val max_tokens:            Int     = 2048,
@@ -248,7 +250,7 @@ LlmWrapper.builder()
         LlmCreateInput(
             model_name = paths.model_name,
             model_path = paths.model_path,
-            config     = ModelConfig(nCtx = 4096),
+            config     = ModelConfig(nCtx = 8192),
             runtime_id  = "llama_cpp",
             compute_unit  = null,       // null → npu (recommended on Snapdragon)
         )
@@ -292,7 +294,7 @@ VlmWrapper.builder()
             model_name  = paths.model_name,
             model_path  = paths.model_path,
             mmproj_path = paths.mmproj_path,
-            config      = ModelConfig(nCtx = 4096),
+            config      = ModelConfig(nCtx = 8192),
             runtime_id   = "llama_cpp",
             compute_unit   = null,
         )

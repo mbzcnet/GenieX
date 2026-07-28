@@ -41,6 +41,10 @@ type ChatCompletionRequest struct {
 	NCtx        int32  `json:"nctx"`
 	Ngl         int32  `json:"ngl"` // 0 = pure CPU, -1 = all layers, N = N layers; defaults to the server --ngl when omitted
 	Compute     string `json:"compute"`
+	// llama_cpp-only KV cache types; empty = server default / SDK auto.
+	CacheTypeK string `json:"cache_type_k"`
+	CacheTypeV string `json:"cache_type_v"`
+	KvCache    string `json:"kv_cache"` // convenience: sets both when individual fields empty
 
 	ImageMaxLength int32 `json:"image_max_length"`
 
@@ -68,6 +72,8 @@ func defaultChatCompletionRequest() ChatCompletionRequest {
 		NCtx:              cfg.NCtx,
 		Ngl:               cfg.Ngl,
 		Compute:           cfg.Compute,
+		// CacheTypeK/V / KvCache left empty here; resolved after JSON bind so
+		// a request-level kv_cache can win over server defaults.
 		ImageMaxLength:    512,
 		TopK:              0,
 		MinP:              0.0,
@@ -114,10 +120,31 @@ func ChatCompletions(c *gin.Context) {
 		return
 	}
 
+	// Resolve KV cache types: request fields first, then request kv_cache
+	// convenience, then server --kv-cache / --cache-type-* defaults.
+	cacheK, cacheV := param.CacheTypeK, param.CacheTypeV
+	if param.KvCache != "" {
+		if cacheK == "" {
+			cacheK = param.KvCache
+		}
+		if cacheV == "" {
+			cacheV = param.KvCache
+		}
+	}
+	if cacheK == "" || cacheV == "" {
+		sk, sv := config.Get().ResolvedCacheTypes()
+		if cacheK == "" {
+			cacheK = sk
+		}
+		if cacheV == "" {
+			cacheV = sv
+		}
+	}
+
 	// Fill unset request knobs from the server-wide defaults and resolve the
 	// compute unit. Done before the MaxCompletionTokens floor so a body that
 	// omits nctx picks up the server default, not the floor.
-	modelParam, err := service.ResolveModelParam(paths.RuntimeID, paths.ModelName, param.NCtx, param.Ngl, param.Compute)
+	modelParam, err := service.ResolveModelParam(paths.RuntimeID, paths.ModelName, param.NCtx, param.Ngl, param.Compute, cacheK, cacheV)
 	if err != nil {
 		slog.Error("Failed to resolve model params", "model", param.Model, "error", err)
 		c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error()})

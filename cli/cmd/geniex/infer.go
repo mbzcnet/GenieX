@@ -39,6 +39,11 @@ var (
 	systemPrompt   string
 	computeUnit    string
 	slidingWindow  bool
+	// llama_cpp KV cache types ("f16", "q8_0", …). Empty = auto.
+	// --kv-cache sets both; --cache-type-k / --cache-type-v override one side.
+	kvCache    string
+	cacheTypeK string
+	cacheTypeV string
 
 	// sampler config
 	temperature       float32
@@ -77,7 +82,10 @@ var (
 		llmFlags.SortFlags = false
 		llmFlags.StringVarP(&computeUnit, "compute", "c", "", "compute unit to run on: cpu, gpu, npu, or hybrid (default: npu)")
 		llmFlags.Int32VarP(&ngl, "ngl", "n", -1, "number of layers to offload to gpu/npu, -1 = all (llama_cpp only)")
-		llmFlags.Int32VarP(&nctx, "nctx", "", 4096, "context window size (llama_cpp only)")
+		llmFlags.Int32VarP(&nctx, "nctx", "", 16384, "context window size (llama_cpp only)")
+		llmFlags.StringVar(&kvCache, "kv-cache", "", "KV cache type for both K and V: f16, q8_0, q4_0, … (llama_cpp only; empty=auto q8_0 when nctx>=8192)")
+		llmFlags.StringVar(&cacheTypeK, "cache-type-k", "", "KV cache type for K only (overrides --kv-cache; llama_cpp only)")
+		llmFlags.StringVar(&cacheTypeV, "cache-type-v", "", "KV cache type for V only (overrides --kv-cache; llama_cpp only)")
 		llmFlags.Int32VarP(&maxTokens, "max-tokens", "", 2048, "max tokens")
 		llmFlags.StringArrayVarP(&stop, "stop", "", nil, "stop sequences (llama_cpp only)")
 		llmFlags.StringVarP(&stopFile, "stop-file", "", "", "file containing stop sequences (llama_cpp only)")
@@ -240,6 +248,32 @@ func resolveModelParams(runtimeID, modelName string) (deviceID string, resolvedN
 	return
 }
 
+// resolveCacheTypes merges --kv-cache with --cache-type-k/v. Empty means the
+// SDK auto policy (q8_0 when n_ctx >= 8192). Only meaningful for llama_cpp.
+func resolveCacheTypes() (k, v string) {
+	k, v = cacheTypeK, cacheTypeV
+	if kvCache != "" {
+		if k == "" {
+			k = kvCache
+		}
+		if v == "" {
+			v = kvCache
+		}
+	}
+	return k, v
+}
+
+// cacheTypeKOrKv / cacheTypeVOrKv are thin wrappers for geniex run's JSON body.
+func cacheTypeKOrKv() string {
+	k, _ := resolveCacheTypes()
+	return k
+}
+
+func cacheTypeVOrKv() string {
+	_, v := resolveCacheTypes()
+	return v
+}
+
 func inferLLM(paths *geniex_sdk.ModelPaths) error {
 	samplerConfig := &geniex_sdk.SamplerConfig{
 		Temperature:       temperature,
@@ -263,6 +297,7 @@ func inferLLM(paths *geniex_sdk.ModelPaths) error {
 	if err != nil {
 		return err
 	}
+	cacheK, cacheV := resolveCacheTypes()
 
 	spin := render.NewSpinner("loading model...")
 	spin.Start()
@@ -275,6 +310,8 @@ func inferLLM(paths *geniex_sdk.ModelPaths) error {
 		Config: geniex_sdk.ModelConfig{
 			NCtx:       nctxResolved,
 			NGpuLayers: nglResolved,
+			CacheTypeK: cacheK,
+			CacheTypeV: cacheV,
 		},
 	})
 	spin.Stop()
@@ -418,6 +455,7 @@ func inferVLM(paths *geniex_sdk.ModelPaths) error {
 	if err != nil {
 		return err
 	}
+	cacheK, cacheV := resolveCacheTypes()
 
 	spin := render.NewSpinner("loading model...")
 	spin.Start()
@@ -430,6 +468,8 @@ func inferVLM(paths *geniex_sdk.ModelPaths) error {
 		Config: geniex_sdk.ModelConfig{
 			NCtx:       nctxResolved,
 			NGpuLayers: nglResolved,
+			CacheTypeK: cacheK,
+			CacheTypeV: cacheV,
 		},
 	})
 	spin.Stop()

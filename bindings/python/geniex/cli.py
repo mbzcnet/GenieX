@@ -335,11 +335,19 @@ def _cmd_chat(args: argparse.Namespace) -> int:
     sys.stdout.write(f'{_DIM}loading {name} ...{_RESET} ')
     sys.stdout.flush()
     t0 = time.monotonic()
+    load_kwargs: dict = {}
+    cache_k = getattr(args, 'cache_type_k', None) or getattr(args, 'kv_cache', None)
+    cache_v = getattr(args, 'cache_type_v', None) or getattr(args, 'kv_cache', None)
+    if cache_k:
+        load_kwargs['cache_type_k'] = cache_k
+    if cache_v:
+        load_kwargs['cache_type_v'] = cache_v
     model = AutoModelForCausalLM.from_pretrained(
         args.model,
         precision=args.quant,
         device_map=args.device,
         n_ctx=args.n_ctx,
+        **load_kwargs,
     )
     elapsed = time.monotonic() - t0
     is_vlm = isinstance(model, GenieXVLM)
@@ -556,6 +564,13 @@ def _build_parser() -> argparse.ArgumentParser:
     chat.add_argument('--max-tokens', type=int, default=512)
     chat.add_argument('--temperature', type=float, default=0.7)
     chat.add_argument('--n-ctx', type=int, default=0, help='Context length (0 = model default)')
+    chat.add_argument(
+        '--kv-cache',
+        default=None,
+        help='KV cache type for both K and V (f16, q8_0, q4_0, …; empty=auto)',
+    )
+    chat.add_argument('--cache-type-k', default=None, help='KV cache type for K only')
+    chat.add_argument('--cache-type-v', default=None, help='KV cache type for V only')
     chat.add_argument(
         '--device',
         default='auto',

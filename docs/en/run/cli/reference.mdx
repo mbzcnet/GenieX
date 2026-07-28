@@ -124,7 +124,10 @@ Control model loading, context, and generation limits.
 | Flag | Type | Default | Description |
 |---|---|---|---|
 | `-n`, `--ngl` | int | `-1` | Number of layers to offload to GPU/NPU, `-1` = all (llama_cpp only). |
-| `--nctx` | int | `4096` | Context window size (max input + output tokens). |
+| `--nctx` | int | `16384` | Context window size (max input + output tokens). |
+| `--kv-cache` | string | auto | KV cache type for both K and V (`f16`, `q8_0`, `q4_0`, …). Empty = auto: `q8_0` when `--nctx` ≥ 8192 (llama_cpp only). |
+| `--cache-type-k` | string | — | Override KV cache type for K only (llama_cpp only). |
+| `--cache-type-v` | string | — | Override KV cache type for V only (llama_cpp only). |
 | `--max-tokens` | int | `2048` | Maximum tokens to generate per response. |
 | `--stop` | string[] | — | Stop sequences (can be specified multiple times). |
 | `--stop-file` | string | — | File containing stop sequences (one per line). |

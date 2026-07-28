@@ -65,7 +65,7 @@ unchanged when supplied via `<plugin>:<device>`.
 
 2. **`device_id="HTP0"` + `n_gpu_layers=-1`** (the `npu` alias) → runtime calls `ggml_backend_dev_by_name("HTP0")` and sets `mpar.devices = {HTP0}`. This **pins the model to a single compute-unit layout** and disables per-tensor hybrid assignment. Any op HTP doesn't support gets handled less efficiently. On the same model: ~60 tok/s prefill, ~22 tok/s decode, ~350 ms TTFT. Task Manager shows CPU pegged (the host thread driving HTP busy-waits, *plus* all fallbacks run there). Useful when you want deterministic layout / all weights on a known compute unit. Note: a non-zero `n_gpu_layers` is required even with the compute unit pinned — `device_id="HTP0"` with `ngl=0` opens an HTP session and then runs every layer on CPU, so the default `ngl=-1` (all layers) applies for this alias (`sdk/src/device.cpp`).
 
-Bonus: when the `device_id` string starts with `"HTP0"`, the runtime also flips KV cache to Q8_0 and enables flash-attn (`llm.cpp:136-140`). Orthogonal to perf — path (2) is slower than (1) even with those enabled.
+Bonus: KV cache type is controlled separately via `cache_type_k` / `cache_type_v` on `geniex_ModelConfig` (CLI: `--kv-cache` / `--cache-type-k` / `--cache-type-v`). Empty = auto: `q8_0` when `n_ctx >= 8192`, otherwise llama.cpp's default (`f16`). Flash-attn is enabled for CPU/NPU in `params.cpp` (GPU matrix leaves it off).
 
 **Rule of thumb:** use `--device hybrid` (or leave `--device` empty) for fastest throughput; use `--device npu` when you need determinism or when debugging placement.
 

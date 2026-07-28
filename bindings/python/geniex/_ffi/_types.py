@@ -101,6 +101,8 @@ class geniex_ModelConfig(Structure):
         ('n_ubatch', c_int32),
         ('n_seq_max', c_int32),
         ('n_gpu_layers', c_int32),
+        ('cache_type_k', c_char_p),  # llama_cpp only; NULL/"" = auto
+        ('cache_type_v', c_char_p),  # llama_cpp only; NULL/"" = auto
         ('chat_template_path', c_char_p),
         ('chat_template_content', c_char_p),
         ('system_prompt', c_char_p),

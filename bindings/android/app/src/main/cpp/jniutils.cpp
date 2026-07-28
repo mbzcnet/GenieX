@@ -233,9 +233,20 @@ geniex_ModelConfig extract_model_config(JNIEnv* env, jobject configObj) {
 
     config.n_gpu_layers = env->GetIntField(configObj, env->GetFieldID(cls, "nGpuLayers", "I"));
 
+    // cache_type_k / cache_type_v (llama_cpp only; empty = auto)
+    jfieldID fid  = env->GetFieldID(cls, "cacheTypeK", "Ljava/lang/String;");
+    jstring  jstr = fid ? (jstring)env->GetObjectField(configObj, fid) : nullptr;
+    config.cache_type_k = jstr ? hold_c_str(jstring2str(env, jstr)) : nullptr;
+    if (jstr) env->DeleteLocalRef(jstr);
+
+    fid  = env->GetFieldID(cls, "cacheTypeV", "Ljava/lang/String;");
+    jstr = fid ? (jstring)env->GetObjectField(configObj, fid) : nullptr;
+    config.cache_type_v = jstr ? hold_c_str(jstring2str(env, jstr)) : nullptr;
+    if (jstr) env->DeleteLocalRef(jstr);
+
     // chat_template_path
-    jfieldID fid              = env->GetFieldID(cls, "chat_template_path", "Ljava/lang/String;");
-    jstring  jstr             = (jstring)env->GetObjectField(configObj, fid);
+    fid                       = env->GetFieldID(cls, "chat_template_path", "Ljava/lang/String;");
+    jstr                      = (jstring)env->GetObjectField(configObj, fid);
     config.chat_template_path = jstr ? hold_c_str(jstring2str(env, jstr)) : nullptr;
 
     // chat_template_content
@@ -436,9 +447,15 @@ geniex_LlmCreateInput extract_llm_create_input(JNIEnv* env, jobject inputObj) {
         ResolvedDevice r        = resolve_device(out.plugin_id, out.model_name, raw_dev, out.config.n_gpu_layers);
         out.device_id           = r.device_id.empty() ? nullptr : hold_c_str(r.device_id);
         out.config.n_gpu_layers = r.ngl;
-        LOGi("[JNI] [extract] compute_unit = %s, n_gpu_layers = %d (from raw='%s')",
+        // qairt rejects non-zero n_ctx (context length is baked into the bundle).
+        if (out.plugin_id && strcmp(out.plugin_id, "qairt") == 0 && out.config.n_ctx != 0) {
+            LOGi("[JNI] [extract] qairt: forcing n_ctx 0 (was %d)", out.config.n_ctx);
+            out.config.n_ctx = 0;
+        }
+        LOGi("[JNI] [extract] compute_unit = %s, n_gpu_layers = %d, n_ctx = %d (from raw='%s')",
             r.device_id.empty() ? "(null)" : r.device_id.c_str(),
             out.config.n_gpu_layers,
+            out.config.n_ctx,
             raw_dev.c_str());
     }
 
@@ -514,9 +531,15 @@ geniex_VlmCreateInput extract_vlm_create_input(JNIEnv* env, jobject inputObj) {
         ResolvedDevice r        = resolve_device(out.plugin_id, out.model_name, raw_dev, out.config.n_gpu_layers);
         out.device_id           = r.device_id.empty() ? nullptr : hold_c_str(r.device_id);
         out.config.n_gpu_layers = r.ngl;
-        LOGi("[JNI] [extract_vlm] compute_unit = %s, n_gpu_layers = %d (from raw='%s')",
+        // qairt rejects non-zero n_ctx (context length is baked into the bundle).
+        if (out.plugin_id && strcmp(out.plugin_id, "qairt") == 0 && out.config.n_ctx != 0) {
+            LOGi("[JNI] [extract_vlm] qairt: forcing n_ctx 0 (was %d)", out.config.n_ctx);
+            out.config.n_ctx = 0;
+        }
+        LOGi("[JNI] [extract_vlm] compute_unit = %s, n_gpu_layers = %d, n_ctx = %d (from raw='%s')",
             r.device_id.empty() ? "(null)" : r.device_id.c_str(),
             out.config.n_gpu_layers,
+            out.config.n_ctx,
             raw_dev.c_str());
     }
 

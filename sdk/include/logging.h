@@ -224,7 +224,7 @@ struct fmt::formatter<geniex_ModelConfig> {
     auto           format(const geniex_ModelConfig& p, fmt::format_context& ctx) const {
         return fmt::format_to(ctx.out(),
             "ModelConfig(n_ctx: {}, n_threads: {}, n_threads_batch: {}, n_batch: {}, n_ubatch: {}, n_seq_max: {}, "
-                      "n_gpu_layers: {}, "
+                      "n_gpu_layers: {}, cache_type_k: {}, cache_type_v: {}, "
                       "chat_template_path: {}, chat_template_content: {}, system_prompt: {}, enable_sampling: {}, grammar_str: "
                       "{}, max_tokens: {}, "
                       "enable_thinking: {}, verbose: {})",
@@ -235,6 +235,8 @@ struct fmt::formatter<geniex_ModelConfig> {
             lp(p.n_ubatch),
             lp(p.n_seq_max),
             lp(p.n_gpu_layers),
+            lp(p.cache_type_k),
+            lp(p.cache_type_v),
             lp(p.chat_template_path),
             lp(p.chat_template_content),
             lp(p.system_prompt),

@@ -32,9 +32,12 @@ func serve() *cobra.Command {
 	serveCmd.Flags().Int("keepalive", 300, "Keepalive seconds (env: GENIEX_KEEPALIVE)")
 	// Model-load defaults applied when a request omits them (llama_cpp only;
 	// per-request body fields still override).
-	serveCmd.Flags().Int32("nctx", 4096, "Default context window size, llama_cpp only (env: GENIEX_NCTX)")
+	serveCmd.Flags().Int32("nctx", 16384, "Default context window size, llama_cpp only (env: GENIEX_NCTX)")
 	serveCmd.Flags().Int32P("ngl", "n", -1, "Default layers to offload to gpu/npu, -1 = all, llama_cpp only (env: GENIEX_NGL)")
 	serveCmd.Flags().StringP("compute", "c", "", "Default compute unit: cpu, gpu, npu, or hybrid (env: GENIEX_COMPUTE)")
+	serveCmd.Flags().String("kv-cache", "", "Default KV cache type for both K and V (llama_cpp only; env: GENIEX_KVCACHE)")
+	serveCmd.Flags().String("cache-type-k", "", "Default KV cache type for K (env: GENIEX_CACHETYPEK)")
+	serveCmd.Flags().String("cache-type-v", "", "Default KV cache type for V (env: GENIEX_CACHETYPEV)")
 	// HTTPS / TLS flags
 	serveCmd.Flags().Bool("https", false, "Enable HTTPS/TLS (env: GENIEX_HTTPS)")
 	serveCmd.Flags().String("certfile", "cert.pem", "TLS certificate file path (env: GENIEX_CERTFILE)")
@@ -46,6 +49,9 @@ func serve() *cobra.Command {
 	viper.BindPFlag("nctx", serveCmd.Flags().Lookup("nctx"))
 	viper.BindPFlag("ngl", serveCmd.Flags().Lookup("ngl"))
 	viper.BindPFlag("compute", serveCmd.Flags().Lookup("compute"))
+	viper.BindPFlag("kvcache", serveCmd.Flags().Lookup("kv-cache"))
+	viper.BindPFlag("cachetypek", serveCmd.Flags().Lookup("cache-type-k"))
+	viper.BindPFlag("cachetypev", serveCmd.Flags().Lookup("cache-type-v"))
 	viper.BindPFlag("enablehttps", serveCmd.Flags().Lookup("https"))
 	viper.BindPFlag("certfile", serveCmd.Flags().Lookup("certfile"))
 	viper.BindPFlag("keyfile", serveCmd.Flags().Lookup("keyfile"))

@@ -60,7 +60,7 @@ import Feedback from "/snippets/page-feedback.mdx";
             LlmCreateInput(
                 model_name = paths.model_name,
                 model_path = paths.model_path,
-                config     = ModelConfig(nCtx = 4096),
+                config     = ModelConfig(nCtx = 8192),
                 runtime_id  = "llama_cpp",
                 compute_unit  = null,   // null → NPU on Snapdragon (recommended)
             )

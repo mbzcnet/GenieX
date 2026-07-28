@@ -413,6 +413,13 @@ typedef struct {
     int32_t n_seq_max;        // max number of sequences (i.e. distinct states for recurrent models)
     int32_t n_gpu_layers;     // number of layers to offload to GPU, 0 = all layers on CPU
 
+    /* llama_cpp only; qairt ignores. KV cache element type names accepted by
+     * llama.cpp (e.g. "f16", "q8_0", "q4_0", "bf16"). NULL or "" = auto:
+     * q8_0 when n_ctx >= 8192, otherwise the llama.cpp default (typically f16).
+     * Pass "auto" for the same auto policy. */
+    const char* cache_type_k;
+    const char* cache_type_v;
+
     // TODO: consider removing the following fields from ModelConfig, or move to another struct
     geniex_Path chat_template_path;     // path to chat template file, optional
     const char* chat_template_content;  // content of chat template file, optional

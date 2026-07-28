@@ -81,7 +81,7 @@ int32_t LlamaLlm::create(const geniex_LlmCreateInput* input) {
         return GENIEX_ERROR_COMMON_MODEL_LOAD;
     }
 
-    llama_context_params cpar = build_context_params(config, /*n_ctx_default=*/4096, device);
+    llama_context_params cpar = build_context_params(config, /*n_ctx_default=*/16384, device);
     this->ctx                 = llama_init_from_model(this->model, cpar);
     if (!this->ctx) {
         return GENIEX_ERROR_COMMON_MODEL_LOAD;

@@ -223,14 +223,20 @@ def _build_model_config(plugin_id: str | None, n_ctx: int, n_gpu_layers: int, **
     cfg = geniex_ModelConfig(n_ctx=n_ctx, n_gpu_layers=n_gpu_layers)
     _int_fields = {'n_threads', 'n_threads_batch', 'n_batch', 'n_ubatch', 'n_seq_max', 'max_tokens'}
     _bool_fields = {'enable_thinking', 'verbose'}
-    _str_fields = {'chat_template_path', 'chat_template_content', 'system_prompt'}
+    _str_fields = {
+        'chat_template_path',
+        'chat_template_content',
+        'system_prompt',
+        'cache_type_k',
+        'cache_type_v',
+    }
     for k, v in kwargs.items():
         if k in _int_fields:
             setattr(cfg, k, int(v))
         elif k in _bool_fields:
             setattr(cfg, k, bool(v))
         elif k in _str_fields and v is not None:
-            setattr(cfg, k, v.encode())
+            setattr(cfg, k, v.encode() if isinstance(v, str) else v)
     return cfg
 
 

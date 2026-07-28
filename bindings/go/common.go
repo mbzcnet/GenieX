@@ -161,6 +161,10 @@ type ModelConfig struct {
 	NUbatch             int32
 	NSeqMax             int32
 	NGpuLayers          int32
+	// CacheTypeK / CacheTypeV are llama_cpp-only KV cache element types
+	// ("f16", "q8_0", "q4_0", …). Empty = auto (q8_0 when n_ctx >= 8192).
+	CacheTypeK          string
+	CacheTypeV          string
 	ChatTemplatePath    string
 	ChatTemplateContent string
 }
@@ -177,6 +181,8 @@ func (mc ModelConfig) fillC(out *C.geniex_ModelConfig) {
 		n_ubatch:              C.int32_t(mc.NUbatch),
 		n_seq_max:             C.int32_t(mc.NSeqMax),
 		n_gpu_layers:          C.int32_t(mc.NGpuLayers),
+		cache_type_k:          cStringIfSet(mc.CacheTypeK),
+		cache_type_v:          cStringIfSet(mc.CacheTypeV),
 		chat_template_path:    cStringIfSet(mc.ChatTemplatePath),
 		chat_template_content: cStringIfSet(mc.ChatTemplateContent),
 	}
@@ -186,6 +192,8 @@ func freeCModelConfig(c *C.geniex_ModelConfig) {
 	if c == nil {
 		return
 	}
+	cFreeIfSet(unsafe.Pointer(c.cache_type_k))
+	cFreeIfSet(unsafe.Pointer(c.cache_type_v))
 	cFreeIfSet(unsafe.Pointer(c.chat_template_path))
 	cFreeIfSet(unsafe.Pointer(c.chat_template_content))
 }

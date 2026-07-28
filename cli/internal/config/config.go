@@ -22,9 +22,13 @@ type Config struct {
 	// Model-load defaults applied when a request omits them (llama_cpp only;
 	// per-request body fields still override). Compute is the alias resolved by
 	// the SDK (sdk/src/device.cpp); empty means the SDK's own default.
-	NCtx    int32  // Default context window size (default: 4096)
-	Ngl     int32  // Default GPU/NPU layers to offload, -1 = all (default: -1)
-	Compute string // Default compute unit: cpu, gpu, npu, hybrid (default: "")
+	NCtx       int32  // Default context window size (default: 16384)
+	Ngl        int32  // Default GPU/NPU layers to offload, -1 = all (default: -1)
+	Compute    string // Default compute unit: cpu, gpu, npu, hybrid (default: "")
+	KvCache    string // Convenience: default type for both K and V (empty = auto)
+	CacheTypeK string // Default KV cache type for K (empty = fall back to KvCache / auto)
+	CacheTypeV string // Default KV cache type for V (empty = fall back to KvCache / auto)
+
 	// HTTPS / TLS settings
 	HTTPS    bool   // Whether to serve over HTTPS (default: false)
 	CertFile string // TLS certificate file path
@@ -55,6 +59,21 @@ func Get() *Config {
 	viper.Unmarshal(c)
 	c.HFToken = resolveHFToken(c.HFToken)
 	return c
+}
+
+// ResolvedCacheTypes merges KvCache into CacheTypeK/V when either side is empty.
+// Empty result means the SDK auto policy (q8_0 when n_ctx >= 8192).
+func (c *Config) ResolvedCacheTypes() (k, v string) {
+	k, v = c.CacheTypeK, c.CacheTypeV
+	if c.KvCache != "" {
+		if k == "" {
+			k = c.KvCache
+		}
+		if v == "" {
+			v = c.KvCache
+		}
+	}
+	return k, v
 }
 
 func resolveHFToken(geniexToken string) string {

@@ -15,21 +15,24 @@ import (
 	"github.com/qualcomm/GenieX/cli/internal/types"
 )
 
-// ResolveModelParam turns the (nctx, ngl, compute) knobs into the ModelParam
+// ResolveModelParam turns the (nctx, ngl, compute, cache) knobs into the ModelParam
 // the keep-alive cache keys on. The caller passes already-resolved values (the
 // handler prefills unset request fields with the server-wide --nctx / --ngl /
-// --compute defaults). NCtx / NGpuLayers are meaningful only for llama_cpp; for
-// other plugins (e.g. qairt) NCtx is zeroed here and the SDK zeroes ngl so the
-// plugin's param-guard is not tripped. Compute is resolved to a concrete
-// DeviceID by the SDK (sdk/src/device.cpp); coercion warnings are logged.
-func ResolveModelParam(runtimeID, modelName string, reqNCtx, reqNgl int32, reqCompute string) (types.ModelParam, error) {
+// --compute / --kv-cache defaults). NCtx / NGpuLayers / CacheType* are
+// meaningful only for llama_cpp; for other plugins (e.g. qairt) NCtx is zeroed
+// here and the SDK zeroes ngl so the plugin's param-guard is not tripped.
+// Compute is resolved to a concrete DeviceID by the SDK (sdk/src/device.cpp);
+// coercion warnings are logged.
+func ResolveModelParam(runtimeID, modelName string, reqNCtx, reqNgl int32, reqCompute, reqCacheK, reqCacheV string) (types.ModelParam, error) {
 	// nctx / ngl / compute already carry the resolved value (explicit request
 	// or the server default prefilled by the handler). Non-llama_cpp plugins
 	// (e.g. qairt) reject non-zero nctx, so zero it for them; the SDK does the
 	// same for ngl in geniex_resolve_device.
 	nctx, ngl := reqNCtx, reqNgl
+	cacheK, cacheV := reqCacheK, reqCacheV
 	if runtimeID != geniex_sdk.RuntimeLlamaCpp {
 		nctx = 0
+		cacheK, cacheV = "", ""
 	}
 
 	resolved, err := geniex_sdk.ResolveDevice(geniex_sdk.ResolveDeviceInput{
@@ -49,6 +52,8 @@ func ResolveModelParam(runtimeID, modelName string, reqNCtx, reqNgl int32, reqCo
 		NCtx:       nctx,
 		NGpuLayers: resolved.Ngl,
 		DeviceID:   resolved.DeviceID,
+		CacheTypeK: cacheK,
+		CacheTypeV: cacheV,
 	}, nil
 }
 
@@ -175,6 +180,8 @@ func keepAliveGet[T any](name string, param types.ModelParam, reset bool) (any, 
 			Config: geniex_sdk.ModelConfig{
 				NCtx:       param.NCtx,
 				NGpuLayers: param.NGpuLayers,
+				CacheTypeK: param.CacheTypeK,
+				CacheTypeV: param.CacheTypeV,
 			},
 			RuntimeID: paths.RuntimeID,
 		})
@@ -187,6 +194,8 @@ func keepAliveGet[T any](name string, param types.ModelParam, reset bool) (any, 
 			Config: geniex_sdk.ModelConfig{
 				NCtx:       param.NCtx,
 				NGpuLayers: param.NGpuLayers,
+				CacheTypeK: param.CacheTypeK,
+				CacheTypeV: param.CacheTypeV,
 			},
 			RuntimeID: paths.RuntimeID,
 		})

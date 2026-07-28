@@ -3,15 +3,61 @@
 
 #include "params.h"
 
+#include <cctype>
 #include <cstring>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <thread>
 
+#include "ggml.h"
 #include "logging.h"
 
 namespace geniex {
+
+// Mirrors llama.cpp common/arg.cpp kv_cache_types — types safe for K/V cache.
+static const ggml_type kKvCacheTypes[] = {
+    GGML_TYPE_F32,
+    GGML_TYPE_F16,
+    GGML_TYPE_BF16,
+    GGML_TYPE_Q8_0,
+    GGML_TYPE_Q4_0,
+    GGML_TYPE_Q4_1,
+    GGML_TYPE_IQ4_NL,
+    GGML_TYPE_Q5_0,
+    GGML_TYPE_Q5_1,
+};
+
+// Returns true when `name` maps to a supported KV cache type written into `out`.
+// Empty / NULL / "auto" mean "caller should apply the auto policy".
+static bool kv_cache_type_from_name(const char* name, ggml_type& out) {
+    if (!name || name[0] == '\0') {
+        return false;
+    }
+    std::string s(name);
+    for (char& c : s) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    if (s == "auto") {
+        return false;
+    }
+    for (ggml_type t : kKvCacheTypes) {
+        const char* tname = ggml_type_name(t);
+        if (tname && s == tname) {
+            out = t;
+            return true;
+        }
+    }
+    GENIEX_LOG_WARN(
+        "Unsupported KV cache type '{}'; falling back to auto "
+        "(supported: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1)",
+        name);
+    return false;
+}
+
+// Auto policy: q8_0 for long context (saves ~half KV memory vs f16) so the
+// raised default n_ctx (16K) remains practical on device RAM.
+static constexpr int32_t kKvQuantNctxThreshold = 8192;
 
 // Platform
 
@@ -95,9 +141,23 @@ llama_context_params build_context_params(const geniex_ModelConfig& config, int3
     cpar.flash_attn_type      = static_cast<llama_flash_attn_type>(fa);
     cpar.no_perf              = false;
 
+    // KV cache types: explicit name wins; otherwise auto-q8_0 for long ctx.
+    ggml_type type_k = cpar.type_k;
+    ggml_type type_v = cpar.type_v;
+    const bool k_explicit = kv_cache_type_from_name(config.cache_type_k, type_k);
+    const bool v_explicit = kv_cache_type_from_name(config.cache_type_v, type_v);
+    if (!k_explicit && static_cast<int32_t>(cpar.n_ctx) >= kKvQuantNctxThreshold) {
+        type_k = GGML_TYPE_Q8_0;
+    }
+    if (!v_explicit && static_cast<int32_t>(cpar.n_ctx) >= kKvQuantNctxThreshold) {
+        type_v = GGML_TYPE_Q8_0;
+    }
+    cpar.type_k = type_k;
+    cpar.type_v = type_v;
+
     GENIEX_LOG_INFO(
         "[Optimise] context params: n_ctx={}, n_batch={}, n_ubatch={}, n_seq_max={}, n_threads={}, "
-        "n_threads_batch={}, flash_attn_type={}, swa_full={}, kv_unified={}, no_perf={}",
+        "n_threads_batch={}, flash_attn_type={}, type_k={}, type_v={}, swa_full={}, kv_unified={}, no_perf={}",
         cpar.n_ctx,
         cpar.n_batch,
         cpar.n_ubatch,
@@ -105,6 +165,8 @@ llama_context_params build_context_params(const geniex_ModelConfig& config, int3
         cpar.n_threads,
         cpar.n_threads_batch,
         static_cast<int>(cpar.flash_attn_type),
+        ggml_type_name(cpar.type_k),
+        ggml_type_name(cpar.type_v),
         cpar.swa_full,
         cpar.kv_unified,
         cpar.no_perf);

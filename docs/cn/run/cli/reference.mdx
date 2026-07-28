@@ -124,7 +124,10 @@ geniex serve
 | 标志 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | `-n`, `--ngl` | int | `-1` | 卸载到 GPU/NPU 的层数，`-1` = 全部（仅 llama_cpp）。 |
-| `--nctx` | int | `4096` | 上下文窗口大小（最大输入 + 输出 token 数）。 |
+| `--nctx` | int | `16384` | 上下文窗口大小（最大输入 + 输出 token 数）。 |
+| `--kv-cache` | string | auto | K/V 两侧 KV 缓存类型（`f16`、`q8_0`、`q4_0` 等）。空 = 自动：当 `--nctx` ≥ 8192 时用 `q8_0`（仅 llama_cpp）。 |
+| `--cache-type-k` | string | — | 仅覆盖 K 侧 KV 缓存类型（仅 llama_cpp）。 |
+| `--cache-type-v` | string | — | 仅覆盖 V 侧 KV 缓存类型（仅 llama_cpp）。 |
 | `--max-tokens` | int | `2048` | 每次响应生成的最大 token 数。 |
 | `--stop` | string[] | — | 停止序列（可多次指定）。 |
 | `--stop-file` | string | — | 包含停止序列的文件（每行一个）。 |

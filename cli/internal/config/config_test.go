@@ -9,6 +9,26 @@ import (
 	"testing"
 )
 
+func TestResolvedCacheTypes_MergesKvCache(t *testing.T) {
+	c := &Config{KvCache: "q8_0"}
+	k, v := c.ResolvedCacheTypes()
+	if k != "q8_0" || v != "q8_0" {
+		t.Fatalf("got %q/%q, want q8_0/q8_0", k, v)
+	}
+
+	c = &Config{KvCache: "q8_0", CacheTypeK: "f16"}
+	k, v = c.ResolvedCacheTypes()
+	if k != "f16" || v != "q8_0" {
+		t.Fatalf("got %q/%q, want f16/q8_0 (K override)", k, v)
+	}
+
+	c = &Config{}
+	k, v = c.ResolvedCacheTypes()
+	if k != "" || v != "" {
+		t.Fatalf("got %q/%q, want empty auto", k, v)
+	}
+}
+
 func TestResolveHFToken_GenieXPreferredOverHFToken(t *testing.T) {
 	t.Setenv("HF_TOKEN", "hf_token")
 
