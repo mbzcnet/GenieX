@@ -396,11 +396,14 @@ typedef struct {
     geniex_Path* audio_paths;      /* Array of audio paths for VLM (NULL if none) */
     int32_t      audio_count;      /* Number of audios */
     // --- Context-length overflow handling (qcom-ai-hub/geniex#1197) ---
-    /* qairt only; llama_cpp ignores this (it always context-shifts). When true,
-     * evicts the oldest context tokens above sliding_window_n_keep instead of
-     * erroring on context-length overflow. */
+    /* qairt: when true, evicts the oldest context tokens above
+     * sliding_window_n_keep instead of erroring on overflow.
+     * llama_cpp always context-shifts and ignores this flag. */
     bool    sliding_window;
-    int32_t sliding_window_n_keep; /* Tokens to keep anchored when sliding (0 = plugin default of 4) */
+    /* Tokens to keep anchored at the start when sliding / context-shifting.
+     * 0 = plugin default (4). Used by qairt ring-buffer eviction and by
+     * llama_cpp context-shift n_keep. */
+    int32_t sliding_window_n_keep;
 } geniex_GenerationConfig;
 
 /** LLM / VLM model configuration */

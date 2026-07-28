@@ -128,12 +128,15 @@ Control model loading, context, and generation limits.
 | `--kv-cache` | string | auto | KV cache type for both K and V (`f16`, `q8_0`, `q4_0`, …). Empty = auto: `q8_0` when `--nctx` ≥ 8192 (llama_cpp only). |
 | `--cache-type-k` | string | — | Override KV cache type for K only (llama_cpp only). |
 | `--cache-type-v` | string | — | Override KV cache type for V only (llama_cpp only). |
+| `--max-history-turns` | int | `32` | Keep the last N user turns in multi-turn chat (system prompt kept; `0` = unlimited). |
+| `--sliding-window` | — | `true` | (`qairt`) Evict oldest tokens on overflow instead of erroring. llama_cpp always context-shifts. |
+| `--sliding-window-n-keep` | int | `0` | Tokens to keep anchored when sliding / context-shifting (`0` = plugin default 4). |
 | `--max-tokens` | int | `2048` | Maximum tokens to generate per response. |
 | `--stop` | string[] | — | Stop sequences (can be specified multiple times). |
 | `--stop-file` | string | — | File containing stop sequences (one per line). |
 | `--think` / `--think=false` | bool | `true` | Enable or disable thinking mode for reasoning models. |
 | `-s`, `--system-prompt` | string | — | System prompt to set model behavior. |
-| `--sliding-window` | — | `false` | (`qairt` only) Evict the oldest context above a small anchored prefix instead of erroring when the context length is exceeded, letting the conversation continue. |
+
 
 ## **Utility commands**
 

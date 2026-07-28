@@ -24,6 +24,7 @@ import (
 
 	geniex_sdk "github.com/qualcomm/GenieX/bindings/go"
 	"github.com/qualcomm/GenieX/cli/internal/config"
+	chathist "github.com/qualcomm/GenieX/cli/internal/history"
 	"github.com/qualcomm/GenieX/cli/internal/types"
 	"github.com/qualcomm/GenieX/cli/server/service"
 	"github.com/qualcomm/GenieX/cli/server/utils"
@@ -45,6 +46,12 @@ type ChatCompletionRequest struct {
 	CacheTypeK string `json:"cache_type_k"`
 	CacheTypeV string `json:"cache_type_v"`
 	KvCache    string `json:"kv_cache"` // convenience: sets both when individual fields empty
+
+	// Multi-turn context management. MaxHistoryTurns trims to the last N user
+	// turns (0 = unlimited). SlidingWindow defaults true for qairt overflow.
+	MaxHistoryTurns    int   `json:"max_history_turns"`
+	SlidingWindow      *bool `json:"sliding_window"` // nil = true
+	SlidingWindowNKeep int32 `json:"sliding_window_n_keep"`
 
 	ImageMaxLength int32 `json:"image_max_length"`
 
@@ -74,6 +81,7 @@ func defaultChatCompletionRequest() ChatCompletionRequest {
 		Compute:           cfg.Compute,
 		// CacheTypeK/V / KvCache left empty here; resolved after JSON bind so
 		// a request-level kv_cache can win over server defaults.
+		MaxHistoryTurns:   32,
 		ImageMaxLength:    512,
 		TopK:              0,
 		MinP:              0.0,
@@ -251,6 +259,7 @@ func chatCompletionsLLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 	}
 
 	samplerConfig := parseSamplerConfig(param)
+	messages = chathist.TrimLlmHistory(messages, param.MaxHistoryTurns)
 
 	p, err := service.KeepAliveGet[geniex_sdk.LLM](
 		string(param.Model),
@@ -298,10 +307,7 @@ func chatCompletionsLLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 					dataCh <- token
 					return true
 				},
-				Config: &geniex_sdk.GenerationConfig{
-					MaxTokens:     int32(param.MaxCompletionTokens.Value),
-					SamplerConfig: samplerConfig,
-				},
+				Config: generationConfigFromRequest(param, samplerConfig, nil, nil, 0),
 			})
 			close(dataCh)
 		}()
@@ -322,10 +328,7 @@ func chatCompletionsLLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 	} else {
 		genOut, err := p.Generate(geniex_sdk.LlmGenerateInput{
 			PromptUTF8: formatted.FormattedText,
-			Config: &geniex_sdk.GenerationConfig{
-				MaxTokens:     int32(param.MaxCompletionTokens.Value),
-				SamplerConfig: samplerConfig,
-			},
+			Config:     generationConfigFromRequest(param, samplerConfig, nil, nil, 0),
 		})
 		if errors.Is(err, geniex_sdk.ErrLlmTokenizationContextLength) {
 			writeContextLengthExceeded(c, genOut.FullText, genOut.ProfileData)
@@ -472,6 +475,7 @@ func chatCompletionsVLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 	}
 
 	samplerConfig := parseSamplerConfig(param)
+	messages = chathist.TrimVlmHistory(messages, param.MaxHistoryTurns)
 
 	p, err := service.KeepAliveGet[geniex_sdk.VLM](
 		string(param.Model),
@@ -529,13 +533,7 @@ func chatCompletionsVLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 					dataCh <- token
 					return true
 				},
-				Config: &geniex_sdk.GenerationConfig{
-					MaxTokens:      int32(param.MaxCompletionTokens.Value),
-					SamplerConfig:  samplerConfig,
-					ImagePaths:     images,
-					AudioPaths:     audios,
-					ImageMaxLength: param.ImageMaxLength,
-				},
+				Config: generationConfigFromRequest(param, samplerConfig, images, audios, param.ImageMaxLength),
 			})
 
 			close(dataCh)
@@ -557,13 +555,7 @@ func chatCompletionsVLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 	} else {
 		genOut, err := p.Generate(geniex_sdk.VlmGenerateInput{
 			PromptUTF8: formatted.FormattedText,
-			Config: &geniex_sdk.GenerationConfig{
-				MaxTokens:      int32(param.MaxCompletionTokens.Value),
-				SamplerConfig:  samplerConfig,
-				ImagePaths:     images,
-				AudioPaths:     audios,
-				ImageMaxLength: param.ImageMaxLength,
-			},
+			Config:     generationConfigFromRequest(param, samplerConfig, images, audios, param.ImageMaxLength),
 		})
 		if errors.Is(err, geniex_sdk.ErrLlmTokenizationContextLength) && genOut != nil {
 			writeContextLengthExceeded(c, genOut.FullText, genOut.ProfileData)
@@ -578,6 +570,30 @@ func chatCompletionsVLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 }
 
 // =============== request-side helpers ===============
+
+// generationConfigFromRequest builds the SDK generation knobs. Sliding window
+// defaults to true (qairt multi-turn); pass false explicitly to disable.
+// images/audios/imageMaxLength are VLM-only (pass nil / 0 for LLM).
+func generationConfigFromRequest(
+	param ChatCompletionRequest,
+	sampler *geniex_sdk.SamplerConfig,
+	images, audios []string,
+	imageMaxLength int32,
+) *geniex_sdk.GenerationConfig {
+	sliding := true
+	if param.SlidingWindow != nil {
+		sliding = *param.SlidingWindow
+	}
+	return &geniex_sdk.GenerationConfig{
+		MaxTokens:          int32(param.MaxCompletionTokens.Value),
+		SamplerConfig:      sampler,
+		ImagePaths:         images,
+		AudioPaths:         audios,
+		ImageMaxLength:     imageMaxLength,
+		SlidingWindow:      sliding,
+		SlidingWindowNKeep: param.SlidingWindowNKeep,
+	}
+}
 
 func parseSamplerConfig(param ChatCompletionRequest) *geniex_sdk.SamplerConfig {
 	return &geniex_sdk.SamplerConfig{

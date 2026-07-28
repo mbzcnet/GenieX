@@ -22,17 +22,15 @@ $env:GENIEX_LOG="debug"            # PowerShell
 
 设置 `NO_COLOR=1` 可关闭 ANSI 颜色。
 
-### 滑动窗口（仅 qairt）
+### 滑动窗口（qairt）与历史裁剪
 
-`qairt` 后端的上下文长度是固定的（例如 4096 tokens）。默认情况下，一旦累计的对话历史加上新的 prompt 超出该长度，`geniex infer` 会返回超出上下文（out-of-context）错误，会话无法继续。
+`qairt` 后端的上下文长度是固定的（例如 4096 tokens）。默认 **开启** `--sliding-window`：超限时驱逐最旧 token（保留锚定前缀）而不是报错。若需严格报错，传 `--sliding-window=false`。`llama_cpp` 忽略该开关（始终 context-shift），但会使用 `--sliding-window-n-keep` 作为 shift 锚定长度。
 
-传入 `--sliding-window` 可选择丢弃最旧的 tokens（保留一小段锚定前缀），从而让对话在超出上下文限制后仍能继续：
+多轮对话还会用 `--max-history-turns`（默认 32；`0` = 不限制）裁剪应用层历史：
 
 ```bash
-geniex infer <model> --sliding-window
+geniex infer <model> --max-history-turns 16 --sliding-window-n-keep 8
 ```
-
-该选项会在每次 `generate()` 调用时将 generation config 中的 `sliding_window` 设为 `true`；`llama_cpp` 会忽略该选项（它始终会做 context-shift）。未传入该标志时，超出上下文长度仍会返回原来的错误——该功能为严格的可选开启。
 
 ### 模型拉取
 

@@ -128,12 +128,15 @@ geniex serve
 | `--kv-cache` | string | auto | K/V 两侧 KV 缓存类型（`f16`、`q8_0`、`q4_0` 等）。空 = 自动：当 `--nctx` ≥ 8192 时用 `q8_0`（仅 llama_cpp）。 |
 | `--cache-type-k` | string | — | 仅覆盖 K 侧 KV 缓存类型（仅 llama_cpp）。 |
 | `--cache-type-v` | string | — | 仅覆盖 V 侧 KV 缓存类型（仅 llama_cpp）。 |
+| `--max-history-turns` | int | `32` | 多轮对话仅保留最近 N 轮用户轮次（系统提示保留；`0` = 不限制）。 |
+| `--sliding-window` | — | `true` | （`qairt`）超限时驱逐最旧 token 而非报错。llama_cpp 始终 context-shift。 |
+| `--sliding-window-n-keep` | int | `0` | 滑动/context-shift 时锚定保留的 token 数（`0` = 插件默认 4）。 |
 | `--max-tokens` | int | `2048` | 每次响应生成的最大 token 数。 |
 | `--stop` | string[] | — | 停止序列（可多次指定）。 |
 | `--stop-file` | string | — | 包含停止序列的文件（每行一个）。 |
 | `--think` / `--think=false` | bool | `true` | 启用或禁用推理模型的思考模式。 |
 | `-s`, `--system-prompt` | string | — | 设置模型行为的系统提示。 |
-| `--sliding-window` | — | `false` | （仅 `qairt`）当上下文长度超限时，驱逐锚定前缀之外最旧的上下文，而不是报错，从而让对话继续。 |
+
 
 ## **实用命令**
 

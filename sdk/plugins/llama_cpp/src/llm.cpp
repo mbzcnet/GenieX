@@ -279,8 +279,10 @@ int32_t LlamaLlm::generate(const geniex_LlmGenerateInput* input, geniex_LlmGener
     profiler.prompt_start();
 
     // Discard tokens past the first n_keep to fit n_fit more; returns the count discarded, 0 once down to n_keep.
+    // n_keep: reuse GenerationConfig.sliding_window_n_keep (0 = default 4). llama_cpp always
+    // context-shifts; the sliding_window bool itself is qairt-only.
     auto slide_window = [&](int n_fit) -> int {
-        const int n_keep        = 4;
+        const int n_keep        = cfg.sliding_window_n_keep > 0 ? cfg.sliding_window_n_keep : 4;
         const int n_past_before = this->n_past;
         const int needed        = this->n_past + n_fit - n_ctx + 1;
         int       n_discard     = std::max(this->n_past / 2 - n_keep, needed);

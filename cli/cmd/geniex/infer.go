@@ -20,6 +20,7 @@ import (
 
 	geniex_sdk "github.com/qualcomm/GenieX/bindings/go"
 	"github.com/qualcomm/GenieX/cli/cmd/geniex/common"
+	chathist "github.com/qualcomm/GenieX/cli/internal/history"
 	"github.com/qualcomm/GenieX/cli/internal/record"
 	"github.com/qualcomm/GenieX/cli/internal/render"
 )
@@ -39,6 +40,9 @@ var (
 	systemPrompt   string
 	computeUnit    string
 	slidingWindow  bool
+	slidingWindowNKeep int32
+	// maxHistoryTurns trims multi-turn history (system kept; 0 = unlimited).
+	maxHistoryTurns int
 	// llama_cpp KV cache types ("f16", "q8_0", …). Empty = auto.
 	// --kv-cache sets both; --cache-type-k / --cache-type-v override one side.
 	kvCache    string
@@ -94,7 +98,11 @@ var (
 		llmFlags.StringVarP(&input, "input", "i", "", "prompt txt file")
 		llmFlags.StringArrayVarP(&prompt, "prompt", "p", nil, "pass prompt")
 		llmFlags.StringVarP(&tokenFile, "token-file", "t", "", "path to token file (space-separated token IDs) (llama_cpp only)")
-		llmFlags.BoolVarP(&slidingWindow, "sliding-window", "", false, "evict oldest context on overflow instead of erroring (qairt only)")
+		// Default true: qairt multi-turn stays usable; llama_cpp ignores the flag
+		// (it always context-shifts) and only uses --sliding-window-n-keep for n_keep.
+		llmFlags.BoolVarP(&slidingWindow, "sliding-window", "", true, "evict oldest context on overflow instead of erroring (qairt only; default true)")
+		llmFlags.Int32Var(&slidingWindowNKeep, "sliding-window-n-keep", 0, "tokens to keep anchored when sliding/context-shifting (0 = plugin default 4)")
+		llmFlags.IntVar(&maxHistoryTurns, "max-history-turns", 32, "keep last N user turns in multi-turn chat (0 = unlimited)")
 		return llmFlags
 	}()
 	vlmFlags = func() *pflag.FlagSet {
@@ -363,9 +371,10 @@ func inferLLM(paths *geniex_sdk.ModelPaths) error {
 					InputIDs: tokenIDs,
 					OnToken:  onToken,
 					Config: &geniex_sdk.GenerationConfig{
-						MaxTokens:     maxTokens,
-						SamplerConfig: samplerConfig,
-						SlidingWindow: slidingWindow,
+						MaxTokens:          maxTokens,
+						SamplerConfig:      samplerConfig,
+						SlidingWindow:      slidingWindow,
+						SlidingWindowNKeep: slidingWindowNKeep,
 					},
 				})
 				if err != nil {
@@ -377,6 +386,7 @@ func inferLLM(paths *geniex_sdk.ModelPaths) error {
 			} else {
 				// Normal text prompt mode with chat template
 				history = append(history, geniex_sdk.LlmChatMessage{Role: geniex_sdk.LlmRoleUser, Content: prompt})
+				history = chathist.TrimLlmHistory(history, maxHistoryTurns)
 
 				templateOutput, err := p.ApplyChatTemplate(geniex_sdk.LlmApplyChatTemplateInput{
 					Messages:            history,
@@ -391,10 +401,11 @@ func inferLLM(paths *geniex_sdk.ModelPaths) error {
 					PromptUTF8: templateOutput.FormattedText,
 					OnToken:    onToken,
 					Config: &geniex_sdk.GenerationConfig{
-						MaxTokens:     maxTokens,
-						Stop:          stopSequences,
-						SamplerConfig: samplerConfig,
-						SlidingWindow: slidingWindow,
+						MaxTokens:          maxTokens,
+						Stop:               stopSequences,
+						SamplerConfig:      samplerConfig,
+						SlidingWindow:      slidingWindow,
+						SlidingWindowNKeep: slidingWindowNKeep,
 					},
 				})
 
@@ -513,6 +524,7 @@ func inferVLM(paths *geniex_sdk.ModelPaths) error {
 			}
 
 			history = append(history, msg)
+			history = chathist.TrimVlmHistory(history, maxHistoryTurns)
 
 			tmplOut, err := p.ApplyChatTemplate(geniex_sdk.VlmApplyChatTemplateInput{
 				Messages:    history,
@@ -526,12 +538,14 @@ func inferVLM(paths *geniex_sdk.ModelPaths) error {
 				PromptUTF8: tmplOut.FormattedText,
 				OnToken:    onToken,
 				Config: &geniex_sdk.GenerationConfig{
-					MaxTokens:      maxTokens,
-					Stop:           stopSequences,
-					SamplerConfig:  samplerConfig,
-					ImagePaths:     images,
-					ImageMaxLength: imageMaxLength,
-					AudioPaths:     audios,
+					MaxTokens:          maxTokens,
+					Stop:               stopSequences,
+					SamplerConfig:      samplerConfig,
+					ImagePaths:         images,
+					ImageMaxLength:     imageMaxLength,
+					AudioPaths:         audios,
+					SlidingWindow:      slidingWindow,
+					SlidingWindowNKeep: slidingWindowNKeep,
 				},
 			})
 			if err != nil {

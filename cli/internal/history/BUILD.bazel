@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("//scripts:cgo_test.bzl", "go_cgo_test")
+
+go_library(
+    name = "history",
+    srcs = ["history.go"],
+    importpath = "github.com/qualcomm/GenieX/cli/internal/history",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bindings/go:geniex_sdk_go",
+    ],
+)
+
+go_cgo_test(
+    name = "history_test",
+    srcs = ["history_test.go"],
+    embed = [":history"],
+)

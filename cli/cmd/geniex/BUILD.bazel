@@ -21,6 +21,7 @@ go_library(
         "//cli/cmd/geniex/common",
         "//cli/internal/config",
         "//cli/internal/downloader",
+        "//cli/internal/history",
         "//cli/internal/record",
         "//cli/internal/render",
         "//cli/internal/store",

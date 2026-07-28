@@ -22,22 +22,18 @@ $env:GENIEX_LOG="debug"            # PowerShell
 
 `NO_COLOR=1` disables ANSI colors.
 
-### Sliding window (qairt only)
+### Sliding window (qairt) and history trim
 
-The `qairt` backend has a fixed context length (e.g. 4096 tokens). By default, once the accumulated
-conversation history plus a new prompt exceeds it, `geniex infer` returns an out-of-context error and
-the session cannot continue.
+The `qairt` backend has a fixed context length (e.g. 4096 tokens). By default `--sliding-window`
+is **on**, so overflow evicts the oldest tokens (above a small anchored prefix) instead of
+erroring. Pass `--sliding-window=false` to restore the strict error. `llama_cpp` ignores the
+flag (it always context-shifts) but honors `--sliding-window-n-keep` for the shift anchor.
 
-Pass `--sliding-window` to opt into evicting the oldest tokens (above a small anchored prefix) instead,
-letting the conversation continue past the context limit:
+Multi-turn chat also trims application history with `--max-history-turns` (default 32; `0` = unlimited):
 
 ```bash
-geniex infer <model> --sliding-window
+geniex infer <model> --max-history-turns 16 --sliding-window-n-keep 8
 ```
-
-This sets `sliding_window: true` on the generation config for every `generate()` call; `llama_cpp`
-ignores it (it always context-shifts). Without the flag, exceeding the context length still returns
-the original error — the feature is strictly opt-in.
 
 ### Model pull
 
