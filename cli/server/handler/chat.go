@@ -75,7 +75,7 @@ func defaultChatCompletionRequest() ChatCompletionRequest {
 	cfg := config.Get()
 	return ChatCompletionRequest{
 		ChatCompletionNewParams: ChatCompletionNewParams{
-			MaxCompletionTokens: param.NewOpt[int64](2048),
+			MaxCompletionTokens: param.NewOpt[int64](-1),
 		},
 		Stream: false,
 

@@ -26,7 +26,7 @@ std::optional<std::vector<ggml_backend_dev_t>> resolve_devices(const char* devic
 // Reverse-classify a resolved device selection. Mirrors the alias table in
 // sdk/src/device.cpp:
 //   cpu    -> n_gpu_layers == 0                     -> CPU
-//   gpu    -> device_id starts with "GPU"           -> GPU
+//   gpu    -> device_id starts with "GPU" or "Vulkan" -> GPU
 //   npu    -> device_id starts with "HTP"           -> HTP
 //   hybrid -> empty device_id, ngl != 0             -> HTP
 Device classify_device(const char* device_id, int n_gpu_layers);

@@ -34,7 +34,8 @@ func serve() *cobra.Command {
 	// per-request body fields still override).
 	serveCmd.Flags().Int32("nctx", 16384, "Default context window size, llama_cpp only (env: GENIEX_NCTX)")
 	serveCmd.Flags().Int32P("ngl", "n", -1, "Default layers to offload to gpu/npu, -1 = all, llama_cpp only (env: GENIEX_NGL)")
-	serveCmd.Flags().StringP("compute", "c", "", "Default compute unit: cpu, gpu, npu, or hybrid (env: GENIEX_COMPUTE)")
+	// Empty → SDK plugin default (llama_cpp: hybrid, qairt: npu). Same as infer.
+	serveCmd.Flags().StringP("compute", "c", "", "Default compute unit: cpu, gpu, npu, hybrid, or empty=SDK default (env: GENIEX_COMPUTE)")
 	serveCmd.Flags().String("kv-cache", "", "Default KV cache type for both K and V (llama_cpp only; env: GENIEX_KVCACHE)")
 	serveCmd.Flags().String("cache-type-k", "", "Default KV cache type for K (env: GENIEX_CACHETYPEK)")
 	serveCmd.Flags().String("cache-type-v", "", "Default KV cache type for V (env: GENIEX_CACHETYPEV)")

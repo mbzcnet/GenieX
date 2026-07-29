@@ -37,7 +37,7 @@ import Feedback from "/snippets/page-feedback.mdx";
   </Accordion>
 
   <Accordion title="Which runtime is the default?">
-    If you don't pass a compute unit, both `llama_cpp` and `qairt` default to `npu`. For llama_cpp's faster HTP + CPU per-tensor scheduler path, pass `hybrid` explicitly.
+    One SDK table (`geniex_resolve_device`) for every surface: **`hybrid`** for llama.cpp (per-tensor HTP+CPU on Snapdragon Windows / Linux / Android), **`npu`** for `qairt`. Pass `--compute npu` / `device_map="npu"` for the deterministic pinned-HTP0 path.
   </Accordion>
 
   <Accordion title="Which precision (quantization) should I pick?">

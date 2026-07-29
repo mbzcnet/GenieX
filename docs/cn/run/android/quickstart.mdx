@@ -138,11 +138,13 @@ ModelManagerWrapper.pullFlow(
 
 | `compute_unit`        | 计算单元                                    |
 |--------------------|--------------------------------------------|
-| `null` or `"npu"`  | Hexagon NPU（骁龙上推荐）。                  |
-| `"gpu"`            | 通过 OpenCL 使用 Adreno GPU。               |
+| `null`             | SDK 默认：llama_cpp 为 **hybrid**，qairt 为 **npu**。 |
+| `"npu"`            | 钉死 Hexagon HTP0 / QNN NPU。               |
+| `"hybrid"`         | llama.cpp HTP+CPU 调度（与 GGUF 的 SDK 默认相同）。 |
+| `"gpu"`            | Adreno GPU——OpenCL（Windows）/ Vulkan（Linux ARM64）。 |
 | `"cpu"`            | 纯 CPU。可在任意 ARM64 芯片组上运行。        |
 
-Qualcomm AI Engine Direct 会忽略此设置——`cpu`/`gpu` 会带警告地被强制转换为 NPU。
+Qualcomm AI Engine Direct 会忽略此设置——非 npu 别名会带警告强制到 NPU。
 
 ## **使用本地模型**
 

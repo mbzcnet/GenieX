@@ -138,11 +138,13 @@ For `llama_cpp` only — set `compute_unit` on `LlmCreateInput`:
 
 | `compute_unit`        | Compute unit                               |
 |--------------------|--------------------------------------------|
-| `null` or `"npu"`  | Hexagon NPU (recommended on Snapdragon).   |
-| `"gpu"`            | Adreno GPU via OpenCL.                     |
+| `null`             | SDK default: **hybrid** (llama_cpp) or **npu** (qairt). |
+| `"npu"`            | Pinned Hexagon HTP0 / QNN NPU.             |
+| `"hybrid"`         | llama.cpp HTP+CPU scheduler (same as GGUF SDK default). |
+| `"gpu"`            | Adreno GPU — OpenCL (Win) / Vulkan (Linux ARM64). |
 | `"cpu"`            | Pure CPU. Works on any ARM64 chipset.      |
 
-Qualcomm AI Engine Direct ignores this — `cpu`/`gpu` are coerced to NPU with a warning.
+Qualcomm AI Engine Direct ignores this — non-npu aliases are coerced to NPU with a warning.
 
 ## **Using a local model**
 

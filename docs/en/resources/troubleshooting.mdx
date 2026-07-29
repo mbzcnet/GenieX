@@ -29,7 +29,7 @@ import Feedback from "/snippets/page-feedback.mdx";
   </Accordion>
 
   <Accordion title="`--compute cpu` or `--compute gpu` errors with a Qualcomm AI Hub Model">
-    Qualcomm AI Engine Direct is NPU-only. Use `--compute npu` (or omit the flag — `npu` is the default for `qairt`). To run on CPU/GPU, switch to a GGUF model on the [llama.cpp runtime](/en/get-started/platforms#llamacpp).
+    Qualcomm AI Engine Direct is NPU-only. Omit `--compute` (SDK default for `qairt` is `npu`) or pass `--compute npu`. To run on CPU/GPU, switch to a GGUF model on the [llama.cpp runtime](/en/get-started/platforms#llamacpp).
   </Accordion>
 </AccordionGroup>
 

@@ -576,7 +576,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default='auto',
         help=(
             "'auto' | 'cpu' | 'gpu' | 'npu' | 'hybrid' | '<plugin>' | "
-            "'<plugin>:<device>' (default: npu; "
+            "'<plugin>:<device>' (auto = first runtime + SDK default: "
+            "hybrid for llama_cpp, npu for qairt; "
             "run 'geniex-py devices' to list concrete ids)"
         ),
     )

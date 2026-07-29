@@ -24,7 +24,7 @@ type Config struct {
 	// the SDK (sdk/src/device.cpp); empty means the SDK's own default.
 	NCtx       int32  // Default context window size (default: 16384)
 	Ngl        int32  // Default GPU/NPU layers to offload, -1 = all (default: -1)
-	Compute    string // Default compute unit: cpu, gpu, npu, hybrid (default: "")
+	Compute    string // Default compute unit; empty = SDK default (hybrid@llama_cpp, npu@qairt)
 	KvCache    string // Convenience: default type for both K and V (empty = auto)
 	CacheTypeK string // Default KV cache type for K (empty = fall back to KvCache / auto)
 	CacheTypeV string // Default KV cache type for V (empty = fall back to KvCache / auto)

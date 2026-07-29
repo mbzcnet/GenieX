@@ -256,7 +256,7 @@ int32_t QairtVlm::generate(const geniex_VlmGenerateInput* input, geniex_VlmGener
     // Map geniex_GenerationConfig → geniex::GenerationConfig
     GenerationConfig gen_cfg{};
     if (input->config) {
-        gen_cfg.max_tokens = input->config->max_tokens > 0 ? input->config->max_tokens : 512;
+        gen_cfg.max_tokens = input->config->max_tokens > 0 ? input->config->max_tokens : 4096;
         qairt::apply_sampler_config(input->config->sampler_config, gen_cfg, bundle_sampler_);
     }
     gen_cfg.thinking_mode = enable_thinking_;

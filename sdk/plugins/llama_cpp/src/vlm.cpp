@@ -196,7 +196,8 @@ int32_t LlamaVlm::generate(const geniex_VlmGenerateInput* input, geniex_VlmGener
     int32_t res = GENIEX_SUCCESS;
 
     geniex_GenerationConfig cfg = input->config ? *input->config : geniex_GenerationConfig{};
-    if (cfg.max_tokens <= 0) cfg.max_tokens = 512;
+    // -1 (or any non-positive) → half the context window as a conservative default
+    if (cfg.max_tokens <= 0) cfg.max_tokens = std::max(1, static_cast<int>(llama_n_ctx(this->ctx)) / 2);
 
     this->set_sampler(cfg.sampler_config);
 

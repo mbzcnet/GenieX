@@ -28,18 +28,19 @@ Constants are exposed as [`RuntimeIdValue`](https://github.com/qualcomm/GenieX/b
 Friendly compute-unit aliases forwarded to `geniex_resolve_device` in the native SDK.
 
 ```kotlin
-val compute_unit: String?   // "cpu" | "gpu" | "npu" | null
+val compute_unit: String?   // "cpu" | "gpu" | "npu" | "hybrid" | null
 ```
 
 | Alias   | Effect                                                              |
 |---------|---------------------------------------------------------------------|
-| `null`  | Runtime default — `npu` for `llama_cpp`, `npu` for `qairt`.         |
-| `"npu"` | Hexagon NPU acceleration. Recommended on Snapdragon.                |
-| `"gpu"` | Adreno GPU via OpenCL (`llama_cpp` only).                           |
+| `null`  | SDK default — **`hybrid`** for `llama_cpp`, **`npu`** for `qairt`.  |
+| `"npu"` | Pinned Hexagon HTP0 (`llama_cpp`) or QNN NPU (`qairt`).             |
+| `"hybrid"` | llama.cpp per-tensor HTP+CPU scheduler (`llama_cpp` only). Same as SDK default for GGUF. |
+| `"gpu"` | Adreno GPU — OpenCL (Windows) / Vulkan (Linux ARM64). `llama_cpp` only. |
 | `"cpu"` | Pure CPU. Forces `nGpuLayers = 0`.                                  |
 
 <Note>
-Qualcomm AI Engine Direct only supports NPU. Passing `"cpu"` or `"gpu"` with a Qualcomm AI Hub Model logs a warning and falls back to NPU — it won't error.
+Defaults are the same as CLI/Python (one SDK table). Qualcomm AI Engine Direct only supports NPU — passing `"cpu"`, `"gpu"`, or `"hybrid"` with a Qualcomm AI Hub Model logs a warning and falls back to NPU.
 </Note>
 
 ---

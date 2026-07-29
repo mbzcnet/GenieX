@@ -132,11 +132,12 @@ Friendly aliases accepted by `device_map`:
 | `npu`    | `HTP0`                             | `NPU`             | Pinned single-session HTP. Deterministic; slower than `hybrid` on LLMs (~30% TTFT).                                  |
 | `hybrid` | empty `device_id`, `ngl=-1`        | `NPU` + warning   | llama.cpp's per-tensor HTP+CPU scheduler — the fast path on Snapdragon.                                              |
 
-`device_map="auto"` (the default) picks `npu` for both `llama_cpp` and
-`qairt`. When the model was pulled via `geniex.model_manager`
-the manifest already records its plugin, so a bare alias binds to that
-plugin — `device_map="npu"` on a cached llama_cpp model resolves to
-`llama_cpp:HTP0`, not qairt. Pass a concrete id as
+`device_map="auto"` (the default) selects a runtime and defers the compute
+unit to the SDK (`geniex_resolve_device`): **hybrid** for `llama_cpp`,
+**npu** for `qairt` — same table as CLI/Android. When the model was pulled
+via `geniex.model_manager` the manifest already records its plugin, so a
+bare alias binds to that plugin — `device_map="npu"` on a cached llama_cpp
+model resolves to `llama_cpp:HTP0`, not qairt. Pass a concrete id as
 `device_map="<plugin>:<device_id>"` for full control (e.g.
 `"llama_cpp:HTP0,HTP1,HTP2,HTP3"`). Run `geniex-py devices` or
 `geniex._ffi.get_device_list(plugin)` to enumerate what your host

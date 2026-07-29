@@ -90,13 +90,15 @@ var (
 	llmFlags = func() *pflag.FlagSet {
 		llmFlags := pflag.NewFlagSet("LLM/VLM Model", pflag.ExitOnError)
 		llmFlags.SortFlags = false
-		llmFlags.StringVarP(&computeUnit, "compute", "c", "", "compute unit to run on: cpu, gpu, npu, or hybrid (default: npu)")
+		// Empty → SDK plugin default (llama_cpp: hybrid, qairt: npu). Do not
+		// hardcode hybrid here — geniex_resolve_device is the single source.
+		llmFlags.StringVarP(&computeUnit, "compute", "c", "", "compute unit: cpu, gpu, npu, or hybrid (default: hybrid for llama_cpp, npu for qairt)")
 		llmFlags.Int32VarP(&ngl, "ngl", "n", -1, "number of layers to offload to gpu/npu, -1 = all (llama_cpp only)")
 		llmFlags.Int32VarP(&nctx, "nctx", "", 16384, "context window size (llama_cpp only)")
 		llmFlags.StringVar(&kvCache, "kv-cache", "", "KV cache type for both K and V: f16, q8_0, q4_0, … (llama_cpp only; empty=auto q8_0 when nctx>=8192)")
 		llmFlags.StringVar(&cacheTypeK, "cache-type-k", "", "KV cache type for K only (overrides --kv-cache; llama_cpp only)")
 		llmFlags.StringVar(&cacheTypeV, "cache-type-v", "", "KV cache type for V only (overrides --kv-cache; llama_cpp only)")
-		llmFlags.Int32VarP(&maxTokens, "max-tokens", "", 2048, "max tokens")
+		llmFlags.Int32VarP(&maxTokens, "max-tokens", "", -1, "max tokens to generate (-1 = use remaining context)")
 		llmFlags.StringArrayVarP(&stop, "stop", "", nil, "stop sequences (llama_cpp only)")
 		llmFlags.StringVarP(&stopFile, "stop-file", "", "", "file containing stop sequences (llama_cpp only)")
 		llmFlags.BoolVarP(&enableThink, "think", "", true, "enable thinking mode (use --think=false to disable)")

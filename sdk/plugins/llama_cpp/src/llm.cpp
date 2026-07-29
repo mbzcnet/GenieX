@@ -207,7 +207,7 @@ int32_t LlamaLlm::generate(const geniex_LlmGenerateInput* input, geniex_LlmGener
         return GENIEX_ERROR_COMMON_INVALID_INPUT;  // error: neither input_ids nor prompt_utf8 provided
 
     geniex_GenerationConfig cfg = input->config ? *input->config : geniex_GenerationConfig{};
-    cfg.max_tokens              = cfg.max_tokens > 0 ? cfg.max_tokens : 128;
+    // Keep -1 as sentinel for "use remaining context"; resolve after prompt encoding.
 
     // Initialzie resources
     this->set_sampler(cfg.sampler_config);
@@ -346,6 +346,11 @@ int32_t LlamaLlm::generate(const geniex_LlmGenerateInput* input, geniex_LlmGener
     bool                     first_token_generated = false;
     std::vector<llama_token> generated_tokens;
     std::stringstream        full_text;
+
+    // Resolve max_tokens: -1 (or non-positive) means use remaining context (minus 64 token headroom)
+    if (cfg.max_tokens <= 0) {
+        cfg.max_tokens = std::max(1, n_ctx - static_cast<int>(prompt_ids.size()) - 64);
+    }
 
     while (res == GENIEX_SUCCESS && (int)generated_tokens.size() < cfg.max_tokens) {
         llama_token id = common_sampler_sample(this->sampler, this->ctx, -1);

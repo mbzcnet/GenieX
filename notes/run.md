@@ -3,7 +3,7 @@
 Terminology used throughout this doc:
 
 - **Runtime** — `llama_cpp` or `qairt` (the `plugin_id`).
-- **Compute unit** — NPU, GPU, CPU, or `hybrid` (mapped from `--device` / `device_id`).
+- **Compute unit** — NPU, GPU, CPU, or `hybrid` (mapped from `--compute` / `device_id`).
 - **Chipset** — the SoC, e.g. Snapdragon X Elite (`SM8750`, `SM8850`, …).
 
 Two runtimes ship with geniex and both can drive the Snapdragon NPU, but through **separate user-space stacks** that consume **different model formats**:
@@ -34,7 +34,7 @@ FFI-sync rule).
 | Alias    | `device_id` sent to SDK | `n_gpu_layers` override | Use case                                                                                    |
 |----------|-------------------------|-------------------------|---------------------------------------------------------------------------------------------|
 | `cpu`    | empty                   | `0`                  | Pure CPU.                                                                                   |
-| `gpu`    | `GPUOpenCL`             | `--ngl` (default -1) | Adreno via OpenCL.                                                                          |
+| `gpu`    | `GPUOpenCL` (Win) / `Vulkan0` (Linux ARM64) | `--ngl` (default -1) | Adreno via OpenCL (Win) or Mesa Turnip Vulkan (Linux). On Linux ARM64 (X Elite), the "gpu" alias resolves to "Vulkan0" — the first ggml-vulkan device — because Mesa's OpenCL (rusticl) may not enumerate compute devices on this platform. |
 | `npu`    | `HTP0`                  | `--ngl` (default -1) | Pinned single-session HTP. Deterministic, slower on LLMs — see § NPU compute-unit selection (llama_cpp). |
 | `hybrid` | empty                   | `--ngl` (default -1) | `llama_cpp` per-tensor HTP+CPU scheduler.                                                    |
 
@@ -42,10 +42,14 @@ FFI-sync rule).
 gpu / npu / hybrid offload everything unless `--ngl` is set. The value
 passes through the SDK unchanged. qairt ignores `--ngl` (forced to 0).
 
-Defaults when the user passes nothing (`--device ""` / `device_map="auto"`):
-`npu` for both `llama_cpp` and `qairt`. QAIRT exposes only one device,
-so `cpu` / `gpu` / `hybrid` against a qairt model get coerced to `NPU`
-with a warning on stderr — the CLI does **not** exit early.
+Defaults when the user passes nothing (empty / `"auto"` / `null`) — **one table in the SDK** (`geniex_resolve_device`), shared by CLI, Python, Android, and server:
+
+| Plugin | Default alias | `device_id` | Why |
+|--------|---------------|------------|-----|
+| `llama_cpp` | **`hybrid`** | empty | Per-tensor HTP+CPU (and GPU if registered) scheduler — general Snapdragon fast path on Windows / Linux / Android. |
+| `qairt` | **`npu`** | `NPU` | QAIRT is NPU-only. |
+
+Pass `--compute npu` / `device_map="npu"` for pinned HTP0. QAIRT coerces non-npu aliases to `NPU` with a warning — the CLI does **not** exit early.
 
 Concrete ids (`HTP0,HTP1,HTP2,HTP3`, `GPUOpenCL`, etc.) pass through
 unchanged when supplied via `<plugin>:<device>`.
@@ -67,20 +71,25 @@ unchanged when supplied via `<plugin>:<device>`.
 
 Bonus: KV cache type is controlled separately via `cache_type_k` / `cache_type_v` on `geniex_ModelConfig` (CLI: `--kv-cache` / `--cache-type-k` / `--cache-type-v`). Empty = auto: `q8_0` when `n_ctx >= 8192`, otherwise llama.cpp's default (`f16`). Flash-attn is enabled for CPU/NPU in `params.cpp` (GPU matrix leaves it off).
 
-**Rule of thumb:** use `--device hybrid` (or leave `--device` empty) for fastest throughput; use `--device npu` when you need determinism or when debugging placement.
+**Rule of thumb:** leave compute unset (SDK default = hybrid for llama_cpp) for
+best general throughput on Snapdragon; use `--compute npu` for deterministic
+pinned-HTP0 placement / debugging.
 
-History: the `fb98467` commit ("add device parameter") originally made `--device npu` synthesize `device_id="HTP0"`, collapsing the fast path. That was reverted (hybrid became the implicit default), then the two semantics were split into explicit `npu` / `hybrid` aliases to let callers pick.
+History: `fb98467` collapsed the fast path by synthesizing HTP0 for npu; hybrid
+was later split out as its own alias. Defaults lived briefly as npu-for-all
+(`a5257a27`), then product default returned to **hybrid for llama_cpp / npu for
+qairt in the SDK** so every binding sees the same table.
 
 ### Running from the CLI
 
-Use `--device` (`-d`):
+Use `--compute` (`-c`):
 
 ```powershell
-geniex infer Qwen/Qwen3-1.7B-GGUF                 # hybrid (default) for llama.cpp
-geniex infer Qwen/Qwen3-1.7B-GGUF --device npu    # pinned HTP0
-geniex infer Qwen/Qwen3-1.7B-GGUF --device hybrid # explicit hybrid
-geniex infer Qwen/Qwen3-1.7B-GGUF --device gpu
-geniex infer Qwen/Qwen3-1.7B-GGUF --device cpu
+geniex infer Qwen/Qwen3-1.7B-GGUF                      # hybrid (default) for llama.cpp
+geniex infer Qwen/Qwen3-1.7B-GGUF --compute npu        # pinned HTP0
+geniex infer Qwen/Qwen3-1.7B-GGUF --compute hybrid     # explicit hybrid
+geniex infer Qwen/Qwen3-1.7B-GGUF --compute gpu
+geniex infer Qwen/Qwen3-1.7B-GGUF --compute cpu
 ```
 
 ### Resource limits (optional)
@@ -114,7 +123,7 @@ The SDK's default log handler is a no-op in release builds (`sdk/src/ml.cpp:36-6
 - **Python:** set `GENIEX_LOG=INFO`. The Python binding installs a `geniex_set_log` callback that routes SDK messages (`Found device: HTP0`, `Using N device(s)`, etc.) to stderr. If you see `Found device: …` lines you're on the **pinned-`HTP0` path** (the `npu` alias); absence = hybrid path.
 - **Windows:** Task Manager's NPU graph. Hybrid lights it up; pinned-`HTP0` pegs the CPU (host thread busy-waits HTP the whole inference).
 - **Signature:** on Snapdragon X1E80100 + a 1.7B Q8_0 model, hybrid gives prefill ≳ 80 tok/s and TTFT ≲ 250 ms; pinned-`HTP0` gives prefill ≲ 65 tok/s and TTFT ≳ 340 ms. Prefill and TTFT separate the two paths more cleanly than decode.
-- **Threadpool:** any offloaded path (all aliases except `cpu`) logs `threadpool tuned for offload: 6 threads pinned to cores [2, 8), strict, poll=1000` — the SDK mirrors upstream's fixed `-t 6 --cpu-mask 0xfc` (`sdk/plugins/llama_cpp/src/threadpool.cpp`); pass `n_threads` in `geniex_ModelConfig` to override. Absent on `--device cpu`.
+- **Threadpool:** any offloaded path (all aliases except `cpu`) logs `threadpool tuned for offload: 6 threads pinned to cores [2, 8), strict, poll=1000` — the SDK mirrors upstream's fixed `-t 6 --cpu-mask 0xfc` (`sdk/plugins/llama_cpp/src/threadpool.cpp`); pass `n_threads` in `geniex_ModelConfig` to override. Absent on `--compute cpu`.
 
 If you see `Device '…' not found, skipping`, the runtime loaded but the GGML backend DLL did not — verify test-signing is still on (for HTP) or that `ggml-opencl.dll` is present in `sdk/pkg-geniex/lib/llama_cpp/`.
 
@@ -122,7 +131,7 @@ If you see `Device '…' not found, skipping`, the runtime loaded but the GGML b
 
 ## Running QAIRT models
 
-QAIRT exposes only its Hexagon NPU compute unit (`plugin_id="qairt"`, `device_id="NPU"`). The SDK's `geniex_resolve_device` coerces `--device cpu` / `gpu` / `hybrid` to `npu` with a stderr warning so existing shell pipelines don't break — expect a line like:
+QAIRT exposes only its Hexagon NPU compute unit (`plugin_id="qairt"`, `device_id="NPU"`). The SDK's `geniex_resolve_device` coerces `--compute cpu` / `gpu` / `hybrid` to `npu` with a stderr warning so existing shell pipelines don't break — expect a line like:
 
 ```
 Warning: qairt plugin only supports NPU inference; ignoring device='cpu' and running on NPU

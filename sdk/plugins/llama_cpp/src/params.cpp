@@ -79,6 +79,7 @@ Device classify_device(const char* device_id, int n_gpu_layers) {
     if (!device_id || device_id[0] == '\0') return Device::NPU;  // HYBRID treat as NPU
     const std::string id(device_id);
     if (id.rfind("GPU", 0) == 0) return Device::GPU;
+    if (id.rfind("Vulkan", 0) == 0) return Device::GPU;
     if (id.rfind("HTP", 0) == 0) return Device::NPU;
     return Device::CPU;  // UNKOWN treat as CPU
 }

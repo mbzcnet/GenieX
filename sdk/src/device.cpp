@@ -30,7 +30,17 @@ constexpr const char* kAliasHybrid = "hybrid";
 constexpr const char* kAliasAuto   = "auto";
 
 constexpr const char* kDeviceHTP0      = "HTP0";
-constexpr const char* kDeviceGPUOpenCL = "GPUOpenCL";
+#if defined(__linux__) && defined(__aarch64__) && !defined(__ANDROID__)
+// On Linux ARM64 (Snapdragon X Elite), Vulkan is the primary GPU compute
+// backend (Mesa Turnip / freedreno). OpenCL via rusticl may not enumerate
+// any devices on this platform, so we map the "gpu" alias to the ggml-vulkan
+// device name instead of "GPUOpenCL". Android uses OpenCL/Adreno and stays
+// with "GPUOpenCL".
+constexpr const char* kDeviceGPU = "Vulkan0";
+#else
+constexpr const char* kDeviceGPU = "GPUOpenCL";
+#endif
+
 constexpr const char* kDeviceQairtNPU  = "NPU";
 
 std::string to_lower(const char* s) {
@@ -80,10 +90,17 @@ int32_t geniex_resolve_device(const geniex_ResolveDeviceInput* input, geniex_Res
         return GENIEX_ERROR_COMMON_INVALID_DEVICE;
     }
 
-    // Empty / "auto" → plugin default. Both qairt and llama_cpp default to
-    // the pinned-NPU path.
+    // Empty / "auto" → plugin-specific product default for every surface
+    // (CLI, Python, Android, server). Bindings must not re-default.
+    //
+    //   llama_cpp → hybrid (empty device_id): per-tensor HTP+CPU scheduler —
+    //     the general Snapdragon fast path when Hexagon is present; ops the
+    //     NPU cannot run stay on CPU without pinning a single HTP session.
+    //   qairt    → npu: QAIRT only has the Hexagon path.
+    //
+    // Explicit aliases (cpu / gpu / npu / hybrid) always win when supplied.
     if (alias.empty() || alias == kAliasAuto) {
-        alias = kAliasNPU;
+        alias = (plugin == kPluginQairt) ? kAliasNPU : kAliasHybrid;
     }
 
     // QAIRT is NPU-only and rejects any non-zero n_gpu_layers, so force
@@ -100,13 +117,16 @@ int32_t geniex_resolve_device(const geniex_ResolveDeviceInput* input, geniex_Res
     }
 
     // llama_cpp: ngl passes through unchanged (-1 means "all layers" to
-    // llama.cpp). Only cpu forces it to 0.
+    // llama.cpp). Only cpu forces it to 0. hybrid leaves device_id empty so
+    // llama.cpp's multi-backend scheduler picks HTP/CPU (and GPU if registered)
+    // per tensor — the same path on Windows / Linux / Android Snapdragon.
     if (alias == kAliasCPU) {
         output->ngl = 0;
     } else if (alias == kAliasGPU) {
-        output->device_id = portable_strdup(kDeviceGPUOpenCL);
+        output->device_id = portable_strdup(kDeviceGPU);
     } else if (alias == kAliasNPU) {
         output->device_id = portable_strdup(kDeviceHTP0);
     }
+    // hybrid / residual auto: device_id stays null → hybrid scheduler.
     return GENIEX_SUCCESS;
 }

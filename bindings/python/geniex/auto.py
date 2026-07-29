@@ -41,6 +41,10 @@ def _apply_plugin_hint(device_map: str, plugin_id: str | None) -> str:
 
     No-op when the manifest doesn't carry a plugin (e.g. user passed a raw
     local path) — alias resolution then falls back to ``_ALIAS_OWNERS``.
+
+    For ``auto`` + a known plugin, return the bare plugin id so
+    ``geniex_resolve_device`` applies the SDK product default (hybrid for
+    llama_cpp, npu for qairt) — bindings do not re-default.
     """
     if not plugin_id:
         return device_map
@@ -57,10 +61,13 @@ def resolve_device_map(
 ) -> tuple[str | None, str | None, int | None]:
     """Resolve a ``device_map`` string to ``(runtime, compute_unit, ngl_override)``.
 
-    Accepted forms: ``"auto"`` / ``""`` (first runtime + SDK default),
-    ``"cpu" | "gpu" | "npu" | "hybrid"`` (alias against the runtime that owns
-    it — cpu/gpu/hybrid → llama_cpp, npu → qairt), ``"<runtime>"``, or
-    ``"<runtime>:<compute-unit>"``.
+    Accepted forms: ``"auto"`` / ``""`` (first registered runtime + SDK
+    compute default), ``"cpu" | "gpu" | "npu" | "hybrid"`` (alias against
+    the runtime that owns it — cpu/gpu/hybrid → llama_cpp, npu → qairt),
+    ``"<runtime>"``, or ``"<runtime>:<compute-unit>"``.
+
+    Compute defaults live only in ``geniex_resolve_device`` (SDK): empty mode
+    is hybrid for llama_cpp and npu for qairt on every supported platform.
 
     ``ngl_override`` is ``None`` unless the alias forces a specific
     ``n_gpu_layers`` (only ``cpu`` → 0). gpu / npu / hybrid pass no
@@ -71,6 +78,7 @@ def resolve_device_map(
         runtimes = get_runtime_list()
         if not runtimes:
             return None, None, None
+        # Runtime selection only; compute unit is the SDK plugin default.
         return _call_sdk(runtimes[0], model_name, None)
 
     key = device_map.lower()
@@ -93,6 +101,7 @@ def resolve_device_map(
             return plugin_id, 'NPU', None
         return plugin_id, device_id, None
 
+    # Bare runtime name → SDK empty/auto default for that plugin.
     return _call_sdk(device_map, model_name, None)
 
 

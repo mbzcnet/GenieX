@@ -33,13 +33,14 @@ val compute_unit: String?   // "cpu" | "gpu" | "npu" | null
 
 | 别名    | 行为                                                                |
 |---------|---------------------------------------------------------------------|
-| `null`  | 运行环境默认值——`llama_cpp` 与 `qairt` 均为 `npu`。               |
-| `"npu"` | Hexagon NPU 加速。骁龙上推荐。                                       |
-| `"gpu"` | 通过 OpenCL 使用 Adreno GPU（仅 `llama_cpp`）。                      |
+| `null`  | SDK 默认——`llama_cpp` 为 **`hybrid`**，`qairt` 为 **`npu`**。    |
+| `"npu"` | 钉死 Hexagon HTP0（`llama_cpp`）或 QNN NPU（`qairt`）。             |
+| `"hybrid"` | llama.cpp 按张量 HTP+CPU 调度（仅 `llama_cpp`）；与 GGUF 的 SDK 默认相同。 |
+| `"gpu"` | Adreno GPU——OpenCL（Windows）/ Vulkan（Linux ARM64）。仅 `llama_cpp`。 |
 | `"cpu"` | 纯 CPU。强制 `nGpuLayers = 0`。                                     |
 
 <Note>
-Qualcomm AI Engine Direct 仅支持 NPU。对 Qualcomm AI Hub Model 传 `"cpu"` 或 `"gpu"` 仅记录告警并回退到 NPU，不会报错。
+默认与 CLI/Python 相同（共用 SDK 一张表）。Qualcomm AI Engine Direct 仅支持 NPU——对 Qualcomm AI Hub Model 传 `"cpu"` / `"gpu"` / `"hybrid"` 仅告警并回退到 NPU。
 </Note>
 
 ---
