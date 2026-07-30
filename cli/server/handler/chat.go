@@ -496,6 +496,13 @@ func chatCompletionsVLM(c *gin.Context, param ChatCompletionRequest, modelParam 
 		return
 	}
 
+	// VLM accumulates image/vision state in the KV cache across
+	// generations. Reset between requests so a follow-up call with
+	// new text does not collide with stale positional embeddings.
+	if err := p.Reset(); err != nil {
+		slog.Error("Failed to reset VLM", "error", err)
+	}
+
 	// Format prompt using VLM chat template
 	formatted, err := p.ApplyChatTemplate(geniex_sdk.VlmApplyChatTemplateInput{
 		Messages:    messages,
@@ -590,8 +597,17 @@ func generationConfigFromRequest(
 	if param.SlidingWindow != nil {
 		sliding = *param.SlidingWindow
 	}
+
+	// Honour max_tokens from the request body when max_completion_tokens is
+	// not explicitly set (i.e. still the server default -1). OpenAI treats
+	// max_completion_tokens as the newer spec, so it wins when both are sent.
+	maxTokens := int32(param.MaxCompletionTokens.Value)
+	if maxTokens == -1 && param.MaxTokens.Valid() {
+		maxTokens = int32(param.MaxTokens.Value)
+	}
+
 	return &geniex_sdk.GenerationConfig{
-		MaxTokens:          int32(param.MaxCompletionTokens.Value),
+		MaxTokens:          maxTokens,
 		SamplerConfig:      sampler,
 		ImagePaths:         images,
 		AudioPaths:         audios,

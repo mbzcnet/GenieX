@@ -112,13 +112,14 @@ int32_t LlamaVlm::get_capabilities(geniex_VlmCapabilities* output) {
 int32_t LlamaVlm::reset() {
     if (!this->ctx) return GENIEX_ERROR_COMMON_INVALID_INPUT;
 
-    // Clear memory keeping BOS token (like mtmd-cli.cpp does)
-    llama_memory_seq_rm(llama_get_memory(this->ctx), 0, 1, -1);
+    // Fully clear the KV cache (metadata + data). Unlike seq_rm with a
+    // partial range, this always succeeds — needed for M-RoPE models
+    // (e.g. Qwen-VL) where seq_rm may reject partial sequence removal.
+    llama_memory_clear(llama_get_memory(this->ctx), true);
 
-    // Reset conversation state, setting to n_past = 1 since we preserved the BOS token above.
-    // TODO: revisit and verify that setting to 1 is correct. mtmd-cli.cpp in llama-cpp sets it to 0 but setting to 0
-    // will cause all test cases to fail.
-    this->n_past              = 1;
+    // Reset to 0 (no BOS in cache). The next generate() will add BOS
+    // automatically because text.add_special = (n_past == 0).
+    this->n_past              = 0;
     this->global_n_past_chars = 0;
 
     return GENIEX_SUCCESS;
